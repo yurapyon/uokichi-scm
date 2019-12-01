@@ -2,4 +2,6 @@ uokichi
 
 assembler for AVR and PIC chips
 
+requires Gambit Scheme
+
 MIT
