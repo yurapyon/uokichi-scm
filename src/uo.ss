@@ -4,7 +4,7 @@
             (acc '()))
     (if (or (null? lst)
             (>= 0 n))
-        (reverse! acc)
+        (reverse acc)
         (rec (- n 1)
              (cdr lst)
              (cons (car lst) acc)))))
@@ -24,14 +24,14 @@
   (let rec ((lst lst)
             (acc '()))
     (if (null? lst)
-        (reverse! acc)
+        (reverse acc)
         (rec (drop n lst)
              (cons (take n lst)
                    acc)))))
 
 (define (conditional-split f lst)
   (cadr
-    (fold-right
+    (foldr
       (lambda (obj acc)
         (let ((a-acc (car acc))
               (b-acc (cadr acc)))
@@ -45,7 +45,7 @@
       lst)))
 
 (define (collect f lst)
-  (fold-right
+  (foldr
     (lambda (obj acc)
       (append (f obj) acc))
     '()
@@ -373,13 +373,84 @@
     (make-instruction idef-add '(5 6))
     (make-instruction idef-sub '(7 8))))
 
-(define code (make-code lst))
+(define code-lst (make-code lst))
 
 (define settings (make-compile-settings (make-hex-record 'eof #x0000 '())
                                         3
                                         2))
 
 #|
+
+(define add (gen-instruction-method "add"))
+
+(define-type instruction-set
+  read-only:
+  name
+  idefs
+  word-sz)
+
+(define (instruction-set-get-idef iset name)
+  (table-ref (instruction-set-idefs iset) name))
+
+(define (instruction-set-add-idef! iset name idef)
+  (table-set! (instruction-set-idefs iset) name idef))
+
+; define-instruction-finder macro
+; would create a lambda of the right arity based on idef
+;  could also include documentation
+(define (gen-instruction-finder name)
+  (let* ((iset (current-instruction-set))
+         (idef (instruction-set-get-idef iset name)))
+    (lambda (. args)
+      (when (not (= (length args) (idef-arg-ct idef)))
+        (error "arity mismatch"))
+      (make-instruction idef
+                        args))))
+
+;
+
+(define current-instruction-set (make-parameter))
+(define current-register-set (make-parameter))
+
+(define iset-avr16 (make-instruction-set))
+
+(instruction-set-add-idef! iset-avr16
+  (make-simple-idef "add" (make-opdef "1100aabb" "ab")))
+
+; name, param ct
+(define .add (gen-instruction-finder "add" 2))
+
+(define (.add a b)
+  ; look up idef for add in current instruction set
+  ; return instruction with that idef and 
+  ())
+
+(define .sreg (gen-register-finder "sreg"))
+
+(define-instruction name)
+
+(.sreg 't)
+
+(define-type instruction-set
+  read-only:
+  instructions
+  word-sz
+  address-sz)
+
+(define-type architecture
+  read-only:
+  instruction-set
+  registers
+  memory-banks
+  ram)
+
+(define-type register)
+
+(define-type ram
+  read-only:
+  start
+  end)
+
 (define words
   (list
     (make-address-tag #x0)
