@@ -149,8 +149,14 @@ void Programmer::transmit_string(const string &str) {
 bool Programmer::check_ok() {
     _ap.receive();
     string responce((const char *)_ap.buffer());
-    if (!responce.compare(0, 4, "err:")) {
-        cerr << responce.substr(4) << endl;
+    if (!responce.compare(0, 3, "ok:")) {
+        cerr << "programmer msg: " << responce.substr(3) << endl;
+        return true;
+    } else if (!responce.compare(0, 4, "err:")) {
+        cerr << "programmer error: " << responce.substr(4) << endl;
+        return false;
+    } else if (!responce.compare(0, 5, "warn:")) {
+        cerr << "programmer warning: " << responce.substr(5) << endl;
         return false;
     }
     return true;
@@ -161,12 +167,25 @@ bool Programmer::set_chip(const string &str) {
         transmit_string("set:chip:atmega328p");
         return check_ok();
     } else {
-        cerr << "board not supported: " << str << endl;
+        cerr << "chip not supported: " << str << endl;
         return false;
     }
 }
 
 bool Programmer::send_hex_file(const string &hex_file) {
+    transmit_string("hex");
+    check_ok();
+
+    transmit_string("dummy begin");
+    check_ok();
+
+    transmit_string("dummy hex");
+    check_ok();
+
+    transmit_string("dummy end");
+    check_ok();
+
+    return true;
 }
 
 //
@@ -176,11 +195,10 @@ int main() {
 
     cout << "starting transmission" << endl;
 
-    while (true) {
-        p.set_chip("atmega328p");
-        sleep(1);
-        cout << "loop" << endl;
-    }
+    p.set_chip("atmega328p");
+    cout << "set chip" << endl;
+    p.send_hex_file("it is a hex file");
+    cout << "sent hex" << endl;
 
     return 0;
 }
