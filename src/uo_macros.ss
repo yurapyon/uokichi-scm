@@ -29,3 +29,12 @@
 ; (define (.add r1 r2)
   ; (make-instruction .add.idef
                     ; (list r1 r2))))))
+
+(define-macro (define-register name base-addr . names)
+  (include "_macro.incl.ss")
+  (let ((resolver-name (build-symbol "&" name))
+        (rdef-name (build-symbol "&" name ".rdef")))
+    `(begin
+       (define ,rdef-name (make-rdef ,(symbol->string name) ,base-addr (list ,@(map symbol->string names))))
+       (define ,resolver-name (make-rdef-resolver ,rdef-name)))))
+

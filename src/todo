@@ -1,6 +1,6 @@
 a:
-  lots of stuff
+  memory
+  documentation facilities
 
 u+p:
-  better 'handshake' method
-    better error handling
+  test with actual code

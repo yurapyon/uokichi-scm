@@ -1,4 +1,8 @@
-; TODO write myself
+; todo label-access 'resolver'
+;        so you can do (- (%r 'label) 1)
+
+; TODO write myself {
+
 (define (_flatten lst acc stk)
   (cond
     ((null? lst)
@@ -21,6 +25,8 @@
 
 (define (flatten lst)
   (_flatten lst '() '()))
+
+; }
 
 (define (take n lst)
   (let rec ((n n)
@@ -352,6 +358,25 @@
 
 ;
 
+; todo errors for label not found
+;      verify math is right for (- laddr curr-addr)
+
+(define (fix-instruction-args args label-table curr-addr)
+  (map
+    (lambda (arg)
+      (cond
+        ((number? arg)
+         arg)
+        ((label-access? arg)
+         (let* ((label (table-ref label-table (label-access-name arg)))
+                (laddr (label-addr label)))
+           (if (label-access-is-relative arg)
+               (- laddr curr-addr)
+               laddr)))
+        (else
+         (error "invalid argument"))))
+    args))
+
 ; returns a flat list of address-tags and words
 (define (code->words code _settings)
   (fold-right
@@ -359,7 +384,10 @@
       (cond
         ((instruction? obj)
          (let* ((apply-fn (idef-apply-fn (instruction-idef obj)))
-                (words (apply-fn (instruction-args obj))))
+                (fixed-args (fix-instruction-args (instruction-args obj)
+                                                  (code-label-table code)
+                                                  addr))
+                (words (apply-fn fixed-args)))
            (append words acc)))
         ((address-tag? obj)
          (cons obj acc))
@@ -402,6 +430,38 @@
     (display (hex-record->string (compile-settings-eof-record settings)) p)
     (newline p)
     (get-output-string p)))
+
+;
+
+; note: can use '_ in names as a way of saying bit is not named
+; expects names to be a list of strings
+;   but resolver expects val to be a symbol
+
+(define-type rdef
+  read-only:
+  name
+  base-addr
+  names)
+
+(define (make-rdef-resolver rd)
+  (lambda lst
+    (if (null? lst)
+        (rdef-base-addr rd)
+        (let ((val (car lst)))
+          (cond
+            ((number? val)
+             val)
+            ((symbol? val)
+             (if (symbol=? val '_)
+                 (rdef-base-addr rd)
+                 (let* ((name (symbol->string val))
+                        (name-ct (length (rdef-names rd)))
+                        (names-rest (member name (rdef-names rd))))
+                  (if (not names-rest)
+                      (error "register name not found")
+                      (- (length names-rest) 1)))))
+            (else
+             (error "must call resolver with symbol")))))))
 
 ;
 
@@ -468,8 +528,6 @@
   registers
   memory-banks
   ram)
-
-(define-type register)
 
 (define-type ram
   read-only:
