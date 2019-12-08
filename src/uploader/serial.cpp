@@ -8,8 +8,6 @@
 
 #include "serial.hpp"
 
-// TODO think abt how to handle errors
-
 //
 
 void ArduinoPort::init(const ArduinoPortSettings &settings) {

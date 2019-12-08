@@ -302,7 +302,7 @@ void Programmer::ATmega328P_write_flash_page(uint16_t addr) {
 
 HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
     // hex line
-    // ":SZaddrTYdatadata....ch
+    // ":SZaddrTYdatadata....ch"
     //  01 3   7 9
 
     const char *cline = line.c_str();
@@ -312,7 +312,7 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
         return HEX_LINE_ERROR;
     }
 
-    uint8_t sz = hr_byte_to_byte(cline + 1) / 2;
+    uint8_t word_ct = hr_byte_to_byte(cline + 1) / 2;
     uint8_t addr_high = hr_byte_to_byte(cline + 3);
     uint8_t addr_low = hr_byte_to_byte(cline + 5);
     uint8_t type = hr_byte_to_byte(cline + 7);
@@ -340,7 +340,7 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
 
     cline += 9;
 
-    for (int i = 0; i < sz; ++i) {
+    for (int i = 0; i < word_ct; ++i) {
         uint8_t data_high = hr_byte_to_byte(cline + i * 2);
         uint8_t data_low = hr_byte_to_byte(cline + i * 2 + 1);
         uint16_t data = data_high;
@@ -351,7 +351,7 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
         if(curr_page != ATmega328P_flash_page_of(curr_addr + 1)) {
             // if you dont have data to write after this
             //   just break and let the finalizer write this page
-            if (i + 1 >= sz) {
+            if (i + 1 >= word_ct) {
                 break;
             }
 

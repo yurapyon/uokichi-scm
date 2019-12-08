@@ -1,3 +1,27 @@
+; TODO write myself
+(define (_flatten lst acc stk)
+  (cond
+    ((null? lst)
+     (if (null? stk)
+         (reverse! acc)
+         (_flatten (car stk)
+                   acc
+                   (cdr stk))))
+    ((pair? (car lst))
+     (_flatten (car lst)
+               acc
+               (if (null? (cdr lst))
+                   stk
+                   (cons (cdr lst)
+                         stk))))
+    (else
+     (_flatten (cdr lst)
+               (cons (car lst) acc)
+               stk))))
+
+(define (flatten lst)
+  (_flatten lst '() '()))
+
 (define (take n lst)
   (let rec ((n n)
             (lst lst)
@@ -137,6 +161,10 @@
 (define (opdef-apply opd arg-vals)
   (apply .i (opdef-base opd) (map bitwise-eat (opdef-args opd) arg-vals)))
 
+; to be able to show the opdef of this idef you need to not use a closure for apply-fn
+; use structs for different data but then idef need apply-fn and data
+;   so different instruction sets can define new idef types
+
 (define-type idef
   read-only:
   constructor: _make-idef
@@ -151,6 +179,29 @@
               1
               (lambda (args)
                 (list (opdef-apply opd args)))))
+
+(define (make-multiple-idef name opds)
+  (_make-idef name
+              (fold
+                (lambda (opd acc)
+                  (+ acc (length (opdef-args opd))))
+                0
+                opds)
+              (length opds)
+              (lambda (args)
+                (let rec ((opds opds)
+                          (args args)
+                          (acc '()))
+                  (if (null? args)
+                      (reverse! acc)
+                      (let* ((opd (car opds))
+                             (arg-ct (length (opdef-args opd))))
+                        (rec (cdr opds)
+                             (drop arg-ct args)
+                             (cons (opdef-apply opd
+                                                (take arg-ct args))
+                                   acc))))))))
+
 
 (define (make-shifted-idef name sz opd)
   (_make-idef name
@@ -354,6 +405,79 @@
 
 ;
 
+(define (@ addr)
+  (make-address-tag addr))
+
+(define (% name)
+  (make-label-tag name))
+
+(define (%r name)
+  (make-label-access name #t))
+
+(define (%a name)
+  (make-label-access name #f))
+
+#|
+
+(define-type instruction-set
+  read-only:
+  constructor: _make-instruction-set
+  name
+  idefs
+  word-sz)
+
+(define (make-instruction-set name word-sz)
+  _make-instruction-set name (make-table) word-sz)
+
+(define (instruction-set-get-idef iset name)
+  (table-ref (instruction-set-idefs iset) name))
+
+(define (instruction-set-add-idef! iset name idef)
+  (table-set! (instruction-set-idefs iset) name idef))
+
+;
+
+(define current-instruction-set (make-parameter))
+
+(define (gen-instruction-method name)
+  (let* ((iset (current-instruction-set))
+         (idef (instruction-set-get-idef iset name)))
+    (lambda (. args)
+      (when (not (= (length args) (idef-arg-ct idef)))
+        (error "arity mismatch"))
+      (make-instruction idef
+                        args))))
+
+; example
+
+(define iset-avr16 (make-instruction-set "avr16" 16))
+(current-instruction-set iset-avr16)
+
+(define (add-idef! name idef)
+  (instruction-set-add-idef! iset-avr16 name idef))
+
+;
+
+(define .sreg (gen-register-finder "sreg"))
+
+(.sreg 't)
+
+(define-type architecture
+  read-only:
+  instruction-set
+  registers
+  memory-banks
+  ram)
+
+(define-type register)
+
+(define-type ram
+  read-only:
+  start
+  end)
+
+|#
+
 ; todo figure out word size use multiples of 8 or bitsz ?
 
 (define idef-add (make-simple-idef  "add" (make-opdef "11000000aaaabbbb" "ab")))
@@ -378,93 +502,3 @@
 (define settings (make-compile-settings (make-hex-record 'eof #x0000 '())
                                         3
                                         2))
-
-#|
-
-(define add (gen-instruction-method "add"))
-
-(define-type instruction-set
-  read-only:
-  name
-  idefs
-  word-sz)
-
-(define (instruction-set-get-idef iset name)
-  (table-ref (instruction-set-idefs iset) name))
-
-(define (instruction-set-add-idef! iset name idef)
-  (table-set! (instruction-set-idefs iset) name idef))
-
-; define-instruction-finder macro
-; would create a lambda of the right arity based on idef
-;  could also include documentation
-(define (gen-instruction-finder name)
-  (let* ((iset (current-instruction-set))
-         (idef (instruction-set-get-idef iset name)))
-    (lambda (. args)
-      (when (not (= (length args) (idef-arg-ct idef)))
-        (error "arity mismatch"))
-      (make-instruction idef
-                        args))))
-
-;
-
-(define current-instruction-set (make-parameter))
-(define current-register-set (make-parameter))
-
-(define iset-avr16 (make-instruction-set))
-
-(instruction-set-add-idef! iset-avr16
-  (make-simple-idef "add" (make-opdef "1100aabb" "ab")))
-
-; name, param ct
-(define .add (gen-instruction-finder "add" 2))
-
-(define (.add a b)
-  ; look up idef for add in current instruction set
-  ; return instruction with that idef and 
-  ())
-
-(define .sreg (gen-register-finder "sreg"))
-
-(define-instruction name)
-
-(.sreg 't)
-
-(define-type instruction-set
-  read-only:
-  instructions
-  word-sz
-  address-sz)
-
-(define-type architecture
-  read-only:
-  instruction-set
-  registers
-  memory-banks
-  ram)
-
-(define-type register)
-
-(define-type ram
-  read-only:
-  start
-  end)
-
-(define words
-  (list
-    (make-address-tag #x0)
-    #xbeef
-    #xdead
-    #x1234
-    #x5678
-    #x9abc
-    #xcdef
-    (make-address-tag #x10)
-    #xbeef
-    #xdead))
-
-(define settings (make-compile-settings '()
-                                        3
-                                        2))
-|#

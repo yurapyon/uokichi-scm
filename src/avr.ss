@@ -1,133 +1,127 @@
 (include "uo.ss")
+(include "uo_macros.ss")
 
-#|
-(defmacro defsimp1 (name spec-str arg-order)
- `(definstruction
-    (make-simple-idef ,name (list (make-opdef ,spec-str ,arg-order)))))
+; math                                |   |   |   |
+(define-simple-instruction "add"     "000011rdddddrrrr" "dr")
+(define-simple-instruction "adc"     "000111rdddddrrrr" "dr")
+(define-simple-instruction "adiw"    "10010110kkddkkkk" "dk")
 
-; math              |   |   |   |
-(defsimp1 "add"    "000011rdddddrrrr" "dr")
-(defsimp1 "adc"    "000111rdddddrrrr" "dr")
-(defsimp1 "adiw"   "10010110kkddkkkk" "dk")
+(define-simple-instruction "sub"     "000110rdddddrrrr" "dr")
+(define-simple-instruction "subi"    "0101kkkkddddkkkk" "dk")
+(define-simple-instruction "sbc"     "000010rdddddrrrr" "dr")
+(define-simple-instruction "sbci"    "0100kkkkddddkkkk" "dk")
+(define-simple-instruction "sbiw"    "10010111kkddkkkk" "dk")
 
-(defsimp1 "sub"    "000110rdddddrrrr" "dr")
-(defsimp1 "subi"   "0101kkkkddddkkkk" "dk")
-(defsimp1 "sbc"    "000010rdddddrrrr" "dr")
-(defsimp1 "sbci"   "0100kkkkddddkkkk" "dk")
-(defsimp1 "sbiw"   "10010111kkddkkkk" "dk")
+(define-simple-instruction "and"     "001000rdddddrrrr" "dr")
+(define-simple-instruction "andi"    "0111kkkkddddkkkk" "dk")
+(define-simple-instruction "or"      "001010rdddddrrrr" "dr")
+(define-simple-instruction "ori"     "0110kkkkddddkkkk" "dk")
+(define-simple-instruction "eor"     "001001rdddddrrrr" "dr")
+(define-simple-instruction "com"     "1001010ddddd0000" "d")
+(define-simple-instruction "neg"     "1001010ddddd0001" "d")
 
-(defsimp1 "and"    "001000rdddddrrrr" "dr")
-(defsimp1 "andi"   "0111kkkkddddkkkk" "dk")
-(defsimp1 "or"     "001010rdddddrrrr" "dr")
-(defsimp1 "ori"    "0110kkkkddddkkkk" "dk")
-(defsimp1 "eor"    "001001rdddddrrrr" "dr")
-(defsimp1 "com"    "1001010ddddd0000" "d")
-(defsimp1 "neg"    "1001010ddddd0001" "d")
+(define-simple-instruction "inc"     "1001010ddddd0011" "d")
+(define-simple-instruction "dec"     "1001010ddddd1010" "d")
 
-(defsimp1 "inc"    "1001010ddddd0011" "d")
-(defsimp1 "dec"    "1001010ddddd1010" "d")
+(define-simple-instruction "mul"     "100111rdddddrrrr" "dr")
+(define-simple-instruction "muls"    "00000010ddddrrrr" "dr")
+(define-simple-instruction "mulsu"   "000000110ddd0rrr" "dr")
+(define-simple-instruction "fmul"    "000000110ddd1rrr" "dr")
+(define-simple-instruction "fmuls"   "000000111ddd0rrr" "dr")
+(define-simple-instruction "fmulsu"  "000000111ddd1rrr" "dr")
 
-(defsimp1 "mul"    "100111rdddddrrrr" "dr")
-(defsimp1 "muls"   "00000010ddddrrrr" "dr")
-(defsimp1 "mulsu"  "000000110ddd0rrr" "dr")
-(defsimp1 "fmul"   "000000110ddd1rrr" "dr")
-(defsimp1 "fmuls"  "000000111ddd0rrr" "dr")
-(defsimp1 "fmulsu" "000000111ddd1rrr" "dr")
+; branch                              |   |   |   |
+(define-simple-instruction "rjmp"    "1100kkkkkkkkkkkk" "k")
+(define-simple-instruction "ijmp"    "1001010000001001" "")
+(define-shifted-instruction "jmp" 2  "1001010kkkkk110k" "k")
+(define-simple-instruction "rcall"   "1101kkkkkkkkkkkk" "k")
+(define-simple-instruction "icall"   "1001010100001001" "")
+(define-shifted-instruction "call" 2 "1001010kkkkk111k" "k")
 
-; branch            |   |   |   |
-(defsimp1 "rjmp"   "1100kkkkkkkkkkkk" "k")
-(defsimp1 "ijmp"   "1001010000001001" "")
-(definstruction
-  (make-shift-idef "jmp" 16
-                   (make-opdef "1001010kkkkk110k" "k")))
-(defsimp1 "rcall"  "1101kkkkkkkkkkkk" "k")
-(defsimp1 "icall"  "1001010100001001" "")
-(definstruction
-  (make-shift-idef "call" 16
-                   (make-opdef "1001010kkkkk111k" "k")))
+(define-simple-instruction "ret"     "1001010100001000" "")
+(define-simple-instruction "reti"    "1001010100011000" "")
 
-(defsimp1 "ret"    "1001010100001000" "")
-(defsimp1 "reti"   "1001010100011000" "")
+(define-simple-instruction "cpse"    "000100rdddddrrrr" "dr")
+(define-simple-instruction "cp"      "000101rdddddrrrr" "dr")
+(define-simple-instruction "cpc"     "000001rdddddrrrr" "dr")
+(define-simple-instruction "cpi"     "0011kkkkddddkkkk" "dk")
 
-(defsimp1 "cpse"   "000100rdddddrrrr" "dr")
-(defsimp1 "cp"     "000101rdddddrrrr" "dr")
-(defsimp1 "cpc"    "000001rdddddrrrr" "dr")
-(defsimp1 "cpi"    "0011kkkkddddkkkk" "dk")
+(define-simple-instruction "sbrs"    "1111111ddddd0bbb" "db")
+(define-simple-instruction "sbrc"    "1111110ddddd0bbb" "db")
+(define-simple-instruction "sbis"    "10011011aaaaabbb" "ab")
+(define-simple-instruction "sbic"    "10011001aaaaabbb" "ab")
+(define-simple-instruction "brbs"    "111100kkkkkkkbbb" "bk")
+(define-simple-instruction "brbc"    "111101kkkkkkkbbb" "bk")
 
-(defsimp1 "sbrs"   "1111111ddddd0bbb" "db")
-(defsimp1 "sbrc"   "1111110ddddd0bbb" "db")
-(defsimp1 "sbis"   "10011011aaaaabbb" "ab")
-(defsimp1 "sbic"   "10011001aaaaabbb" "ab")
-(defsimp1 "brbs"   "111100kkkkkkkbbb" "bk")
-(defsimp1 "brbc"   "111101kkkkkkkbbb" "bk")
+; bit                                 |   |   |   |
+(define-simple-instruction "sbi"     "10011010aaaaabbb" "ab")
+(define-simple-instruction "cbi"     "10011000aaaaabbb" "ab")
 
-; bit               |   |   |   |
-(defsimp1 "sbi"    "10011010aaaaabbb" "ab")
-(defsimp1 "cbi"    "10011000aaaaabbb" "ab")
+(define-simple-instruction "lsr"     "1001010ddddd0110" "d")
+(define-simple-instruction "ror"     "1001010ddddd0111" "d")
+(define-simple-instruction "asr"     "1001010ddddd0101" "d")
 
-(defsimp1 "lsr"    "1001010ddddd0110" "d")
-(defsimp1 "ror"    "1001010ddddd0111" "d")
-(defsimp1 "asr"    "1001010ddddd0101" "d")
+(define-simple-instruction "swap"    "1001010ddddd0010" "d")
+(define-simple-instruction "bset"    "100101000bbb1000" "b")
+(define-simple-instruction "bclr"    "100101001bbb1000" "b")
+(define-simple-instruction "bld"     "1111100ddddd0bbb" "db")
+(define-simple-instruction "bst"     "1111101ddddd0bbb" "db")
 
-(defsimp1 "swap"   "1001010ddddd0010" "d")
-(defsimp1 "bset"   "100101000bbb1000" "b")
-(defsimp1 "bclr"   "100101001bbb1000" "b")
-(defsimp1 "bld"    "1111100ddddd0bbb" "db")
-(defsimp1 "bst"    "1111101ddddd0bbb" "db")
+; data                                |   |   |   |
+(define-simple-instruction "mov"     "001011rdddddrrrr" "dr")
+(define-simple-instruction "movw"    "00000001ddddrrrr" "dr")
+(define-simple-instruction "ldi"     "1110kkkkddddkkkk" "dk")
 
-; data              |   |   |   |
-(defsimp1 "mov"    "001011rdddddrrrr" "dr")
-(defsimp1 "movw"   "00000001ddddrrrr" "dr")
-(defsimp1 "ldi"    "1110kkkkddddkkkk" "dk")
+(define-simple-instruction "ldx"     "1001000ddddd1100" "d")
+(define-simple-instruction "ldx+"    "1001000ddddd1101" "d")
+(define-simple-instruction "ldx-"    "1001000ddddd1110" "d")
+(define-simple-instruction "ldyk"    "10k0kk0ddddd1kkk" "dk")
+(define-simple-instruction "ldy+"    "1001000ddddd1001" "d")
+(define-simple-instruction "ldy-"    "1001000ddddd1010" "d")
+(define-simple-instruction "ldzk"    "10k0kk0ddddd0kkk" "dk")
+(define-simple-instruction "ldz+"    "1001000ddddd0001" "d")
+(define-simple-instruction "ldz-"    "1001000ddddd0010" "d")
+(define-multiple-instruction "lds"
+  ("1001000ddddd0000" "d")
+  ("kkkkkkkkkkkkkkkk" "k"))
 
-(defsimp1 "ldx"    "1001000ddddd1100" "d")
-(defsimp1 "ldx+"   "1001000ddddd1101" "d")
-(defsimp1 "ldx-"   "1001000ddddd1110" "d")
-(defsimp1 "ldyk"   "10k0kk0ddddd1kkk" "dk")
-(defsimp1 "ldy+"   "1001000ddddd1001" "d")
-(defsimp1 "ldy-"   "1001000ddddd1010" "d")
-(defsimp1 "ldzk"   "10k0kk0ddddd0kkk" "dk")
-(defsimp1 "ldz+"   "1001000ddddd0001" "d")
-(defsimp1 "ldz-"   "1001000ddddd0010" "d")
-(definstruction
-  (make-simple-idef "lds"
-    (list
-       (make-opdef "1001000ddddd0000" "d")
-       (make-opdef "kkkkkkkkkkkkkkkk" "k"))))
+(define-simple-instruction "stx"     "1001001ddddd1100" "d")
+(define-simple-instruction "stx+"    "1001001ddddd1101" "d")
+(define-simple-instruction "stx-"    "1001001ddddd1110" "d")
+(define-simple-instruction "styk"    "10k0kk1ddddd1kkk" "dk")
+(define-simple-instruction "sty+"    "1001001ddddd1001" "d")
+(define-simple-instruction "sty-"    "1001001ddddd1010" "d")
+(define-simple-instruction "stzk"    "10k0kk1ddddd0kkk" "dk")
+(define-simple-instruction "stz+"    "1001001ddddd0001" "d")
+(define-simple-instruction "stz-"    "1001001ddddd0010" "d")
+(define-multiple-instruction "sts"
+  ("1001001ddddd0000" "d")
+  ("kkkkkkkkkkkkkkkk" "k"))
 
-(defsimp1 "stx"    "1001001ddddd1100" "d")
-(defsimp1 "stx+"   "1001001ddddd1101" "d")
-(defsimp1 "stx-"   "1001001ddddd1110" "d")
-(defsimp1 "styk"   "10k0kk1ddddd1kkk" "dk")
-(defsimp1 "sty+"   "1001001ddddd1001" "d")
-(defsimp1 "sty-"   "1001001ddddd1010" "d")
-(defsimp1 "stzk"   "10k0kk1ddddd0kkk" "dk")
-(defsimp1 "stz+"   "1001001ddddd0001" "d")
-(defsimp1 "stz-"   "1001001ddddd0010" "d")
-(definstruction
-  (make-simple-idef "sts"
-    (list
-       (make-opdef "1001001ddddd0000" "d")
-       (make-opdef "kkkkkkkkkkkkkkkk" "k"))))
+(define-simple-instruction "lpm"     "1001010111001000" "")
+(define-simple-instruction "lpmr"    "1001000ddddd0100" "d")
+(define-simple-instruction "lpmr+"   "1001000ddddd0101" "d")
+(define-simple-instruction "spm"     "1001010111101000" "")
+(define-simple-instruction "spmz+"   "1001010111111000" "")
 
-(defsimp1 "lpm"    "1001010111001000" "")
-(defsimp1 "lpmr"   "1001000ddddd0100" "d")
-(defsimp1 "lpmr+"  "1001000ddddd0101" "d")
-(defsimp1 "spm"    "1001010111101000" "")
-(defsimp1 "spmz+"  "1001010111111000" "")
+(define-simple-instruction "in"      "10110iidddddiiii" "di")
+(define-simple-instruction "out"     "10111iidddddiiii" "di")
 
-(defsimp1 "in"     "10110iidddddiiii" "di")
-(defsimp1 "out"    "10111iidddddiiii" "di")
+(define-simple-instruction "pop"     "1001000ddddd1111" "d")
+(define-simple-instruction "push"    "1001001ddddd1111" "d")
 
-(defsimp1 "pop"    "1001000ddddd1111" "d")
-(defsimp1 "push"   "1001001ddddd1111" "d")
+; MCU control                         |   |   |   |
+(define-simple-instruction "nop"     "0000000000000000" "")
+(define-simple-instruction "sleep"   "1001010110001000" "")
+(define-simple-instruction "wdr"     "1001010110101000" "")
+(define-simple-instruction "break"   "1001010110011000" "")
 
-; MCU control       |   |   |   |
-(defsimp1 "nop"    "0000000000000000" "")
-(defsimp1 "sleep"  "1001010110001000" "")
-(defsimp1 "wdr"    "1001010110101000" "")
-(defsimp1 "break"  "1001010110011000" "")
+(define-simple-instruction "direct"  "dddddddddddddddd" "d")
 
-(defsimp1 "direct" "dddddddddddddddd" "d")
+;
 
-|#
+(define (avr16-compile lst)
+  (compile (make-code lst)
+           (make-compile-settings (make-hex-record 'eof #x0000 '())
+                                  16
+                                  2)))

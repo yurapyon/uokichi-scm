@@ -49,7 +49,6 @@ enum HexLineErrCode {
     HEX_LINE_ERROR
 };
 
-
 class Programmer {
 public:
     Programmer(PCPort &pcp)
