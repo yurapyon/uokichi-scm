@@ -124,9 +124,34 @@ int ArduinoPort::receive() {
     return msg_sz;
 }
 
-void ArduinoPort::transmit(const char *buf, unsigned int sz) {
+void ArduinoPort::transmit(const uint8_t *buf, unsigned int sz) {
     write(_fd, &sz, 1);
     write(_fd, buf, sz);
+}
+
+void ArduinoPort::transmit_string(const string &str) {
+    transmit((const uint8_t *)str.c_str(), str.length());
+}
+
+bool ArduinoPort::wait_for_done() {
+    while (true) {
+        receive();
+        string responce((const char *)_buf.data());
+        if (!responce.compare(0, 5, "done:")) {
+            cout << "pDone: " << responce.substr(5) << endl;
+            return true;
+        } else if (!responce.compare(0, 5, "fail:")) {
+            cerr << "pFail: " << responce.substr(5) << endl;
+            return false;
+        } else if (!responce.compare(0, 4, "msg:")) {
+            cout << "pMsg: " << responce.substr(4) << endl;
+        } else if (!responce.compare(0, 5, "warn:")) {
+            cerr << "pWarning: " << responce.substr(5) << endl;
+        } else {
+            cerr << "strange message: " << responce << endl;
+            return false;
+        }
+    }
 }
 
 //
@@ -134,38 +159,18 @@ void ArduinoPort::transmit(const char *buf, unsigned int sz) {
 Programmer::Programmer() {
     ArduinoPortSettings aps;
     _ap.init(aps);
-
-    check_ok();
+    // TODO handle error
+    _ap.wait_for_done();
 }
 
 Programmer::~Programmer() {
     _ap.deinit();
 }
 
-void Programmer::transmit_string(const string &str) {
-    _ap.transmit(str.c_str(), str.length());
-}
-
-bool Programmer::check_ok() {
-    _ap.receive();
-    string responce((const char *)_ap.buffer());
-    if (!responce.compare(0, 3, "ok:")) {
-        cerr << "programmer msg: " << responce.substr(3) << endl;
-        return true;
-    } else if (!responce.compare(0, 4, "err:")) {
-        cerr << "programmer error: " << responce.substr(4) << endl;
-        return false;
-    } else if (!responce.compare(0, 5, "warn:")) {
-        cerr << "programmer warning: " << responce.substr(5) << endl;
-        return false;
-    }
-    return true;
-}
-
 bool Programmer::set_chip(const string &str) {
     if (str == "atmega328p") {
-        transmit_string("set:chip:atmega328p");
-        return check_ok();
+        _ap.transmit_string("set:chip:atmega328p");
+        return _ap.wait_for_done();
     } else {
         cerr << "chip not supported: " << str << endl;
         return false;
@@ -173,17 +178,20 @@ bool Programmer::set_chip(const string &str) {
 }
 
 bool Programmer::send_hex_file(const string &hex_file) {
-    transmit_string("hex");
-    check_ok();
+    _ap.transmit_string("prog:begin");
+    if(!_ap.wait_for_done()) {
+        return false;
+    }
 
-    transmit_string("dummy begin");
-    check_ok();
+    _ap.transmit_string("prog:send_hex");
+    if(!_ap.wait_for_done()) {
+        return false;
+    }
 
-    transmit_string("dummy hex");
-    check_ok();
-
-    transmit_string("dummy end");
-    check_ok();
+    _ap.transmit_string("prog:end");
+    if(!_ap.wait_for_done()) {
+        return false;
+    }
 
     return true;
 }

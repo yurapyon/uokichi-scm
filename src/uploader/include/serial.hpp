@@ -25,18 +25,16 @@ public:
     void init(const ArduinoPortSettings &);
     void deinit();
 
-    int receive();
-    void transmit(const char *buf, unsigned int sz);
-
-    uint8_t *buffer() {
-        return _buf.data();
-    }
+    void transmit_string(const string &);
+    bool wait_for_done();
 
 private:
     int _fd;
     vector<uint8_t> _buf;
 
     void open_serial(const string &filename, unsigned int baudrate);
+    int receive();
+    void transmit(const uint8_t *buf, unsigned int sz);
 };
 
 class Programmer {
@@ -49,9 +47,6 @@ public:
 
 private:
     ArduinoPort _ap;
-
-    void transmit_string(const string &);
-    bool check_ok();
 };
 
 #endif
