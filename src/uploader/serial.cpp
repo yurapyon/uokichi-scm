@@ -35,16 +35,31 @@ void ArduinoPort::open_serial(const string &filename, unsigned int baudrate) {
         return;
     }
 
-    speed_t spd;
+    speed_t spd = B9600;
+
     switch(baudrate) {
-    case 4800:   spd = B4800;   break;
-    case 9600:   spd = B9600;   break;
-    case 19200:  spd = B19200;  break;
-    case 38400:  spd = B38400;  break;
-    case 57600:  spd = B57600;  break;
-    case 115200: spd = B115200; break;
-    default:     spd = B9600;   break;
+    case 4800:
+        spd = B4800;
+        break;
+    case 9600:
+        spd = B9600;
+        break;
+    case 19200:
+        spd = B19200;
+        break;
+    case 38400:
+        spd = B38400;
+        break;
+    case 57600:
+        spd = B57600;
+        break;
+    case 115200:
+        spd = B115200;
+        break;
+    default:
+        break;
     }
+
     cfsetispeed(&tios, spd);
     cfsetospeed(&tios, spd);
 
