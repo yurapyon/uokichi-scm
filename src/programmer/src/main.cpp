@@ -162,6 +162,7 @@ void setup() {
     digitalWrite(P_LED, LOW);
 
     sp.init();
+    sp.send_ok();
 }
 
 void loop() {

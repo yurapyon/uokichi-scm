@@ -75,6 +75,10 @@ void ArduinoPort::open_serial(const string &filename, unsigned int baudrate) {
     }
 
     _fd = fd;
+
+    cout << "connected to programmer" << endl
+         << "port: " << filename << endl
+         << "baudrate: " << baudrate << endl;
 }
 
 int ArduinoPort::receive() {
@@ -130,6 +134,8 @@ void ArduinoPort::transmit(const char *buf, unsigned int sz) {
 Programmer::Programmer() {
     ArduinoPortSettings aps;
     _ap.init(aps);
+
+    check_ok();
 }
 
 Programmer::~Programmer() {
@@ -167,6 +173,8 @@ bool Programmer::send_hex_file(const string &hex_file) {
 
 int main() {
     Programmer p;
+
+    cout << "starting transmission" << endl;
 
     while (true) {
         p.set_chip("atmega328p");
