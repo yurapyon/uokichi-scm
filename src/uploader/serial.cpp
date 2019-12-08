@@ -1,54 +1,23 @@
 #include <iostream>
-#include <string>
-#include <vector>
+
+#include <string.h>  // strlen
 
 #include <unistd.h>  // close, read, write, usleep
 #include <fcntl.h>   // open
 #include <termios.h> // termios
 
-using namespace std;
+#include "serial.hpp"
 
-// ArduinoPort
+// TODO think abt how to handle errors
 
-struct ArduinoPortSettings {
-    const string &filename;
-    unsigned int baudrate;
-    unsigned int buf_sz;
+//
 
-    ArduinoPortSettings(const string &filename = "/dev/ttyACM0",
-                        unsigned int baudrate = 19200,
-                        unsigned int buf_sz = 256)
-    : filename(filename)
-    , baudrate(baudrate)
-    , buf_sz(buf_sz) {
-    }
-};
-
-class ArduinoPort {
-public:
-    ArduinoPort(const ArduinoPortSettings &);
-    ~ArduinoPort();
-
-    int receive();
-    void transmit(const uint8_t *buf, unsigned int sz);
-
-    uint8_t *buffer() {
-        return _buf.data();
-    }
-
-private:
-    int _fd;
-    vector<uint8_t> _buf;
-
-    void open_serial(const string &filename, unsigned int baudrate);
-};
-
-ArduinoPort::ArduinoPort(const ArduinoPortSettings &settings) {
+void ArduinoPort::init(const ArduinoPortSettings &settings) {
     open_serial(settings.filename, settings.baudrate);
-    _buf = vector<uint8_t>(settings.buf_sz, 0);
+    _buf = vector<uint8_t>(settings.max_recv_len + 1, 0);
 }
 
-ArduinoPort::~ArduinoPort() {
+void ArduinoPort::deinit() {
     close(_fd);
 }
 
@@ -120,7 +89,7 @@ int ArduinoPort::receive() {
         } else if (res == 0) {
             usleep(50000);
         } else {
-            fprintf(stderr, "read error\n");
+            cerr << "read error" << endl;
             return -1;
         }
     }
@@ -131,18 +100,17 @@ int ArduinoPort::receive() {
     while (true) {
         res = read(_fd, recv_buf + recv_buf_len, 1);
 
+        // TODO handle_max_recv_len / _buf.size()
+
         if (res > 0) {
             recv_buf_len++;
             if (recv_buf_len >= msg_sz) {
                 break;
             }
-
-            // TODO error on out of bounds of _buf
-
         } else if (res == 0) {
             usleep(50000);
         } else {
-            fprintf(stderr, "read error\n");
+            cerr << "read error" << endl;
             return -1;
         }
     }
@@ -152,21 +120,59 @@ int ArduinoPort::receive() {
     return msg_sz;
 }
 
-void ArduinoPort::transmit(const uint8_t *buf, unsigned int sz) {
+void ArduinoPort::transmit(const char *buf, unsigned int sz) {
     write(_fd, &sz, 1);
     write(_fd, buf, sz);
 }
 
 //
 
+Programmer::Programmer() {
+    ArduinoPortSettings aps;
+    _ap.init(aps);
+}
+
+Programmer::~Programmer() {
+    _ap.deinit();
+}
+
+void Programmer::transmit_string(const string &str) {
+    _ap.transmit(str.c_str(), str.length());
+}
+
+bool Programmer::check_ok() {
+    _ap.receive();
+    string responce((const char *)_ap.buffer());
+    if (!responce.compare(0, 4, "err:")) {
+        cerr << responce.substr(4) << endl;
+        return false;
+    }
+    return true;
+}
+
+bool Programmer::set_chip(const string &str) {
+    if (str == "atmega328p") {
+        transmit_string("set:chip:atmega328p");
+        return check_ok();
+    } else {
+        cerr << "board not supported: " << str << endl;
+        return false;
+    }
+}
+
+bool Programmer::send_hex_file(const string &hex_file) {
+}
+
 //
 
 int main() {
-    ArduinoPortSettings aps;
-    ArduinoPort ap(aps);
+    Programmer p;
 
-    int len = ap.receive();
-    cout << "len: " << len << " msg: " << (const char *)ap.buffer() << endl;
+    while (true) {
+        p.set_chip("atmega328p");
+        sleep(1);
+        cout << "loop" << endl;
+    }
 
     return 0;
 }

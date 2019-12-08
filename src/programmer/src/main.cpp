@@ -2,6 +2,22 @@
 
 //
 
+#define P_LED 13
+
+bool light_on = false;
+
+void toggle_light() {
+    if (light_on) {
+        digitalWrite(P_LED, LOW);
+        light_on = false;
+    } else {
+        digitalWrite(P_LED, HIGH);
+        light_on = true;
+    }
+}
+
+//
+
 struct PCPortSettings {
     unsigned int baudrate;
 
@@ -10,7 +26,7 @@ struct PCPortSettings {
     }
 };
 
-#define PCPORT_BUF_SZ 256
+#define PCPORT_MAX_RECV_LEN 256
 
 class PCPort {
 public:
@@ -20,17 +36,19 @@ public:
     int receive();
     void transmit(const uint8_t *buf, unsigned int sz);
 
+    void send_ok();
+
     uint8_t *buffer() {
         return _buf;
     }
 
 private:
-    uint8_t _buf[PCPORT_BUF_SZ];
+    uint8_t _buf[PCPORT_MAX_RECV_LEN + 1];
 };
 
 void PCPort::init(const PCPortSettings &settings) {
     Serial.begin(settings.baudrate);
-    memset(_buf, 0, PCPORT_BUF_SZ);
+    memset(_buf, 0, PCPORT_MAX_RECV_LEN + 1);
 }
 
 void PCPort::deinit() {
@@ -40,7 +58,7 @@ void PCPort::deinit() {
 int PCPort::receive() {
     uint8_t msg_sz;
 
-    while(true) {
+    while (true) {
         if (Serial.available() > 0) {
             msg_sz = Serial.read();
             break;
@@ -51,8 +69,9 @@ int PCPort::receive() {
 
     uint8_t recv_buf_len = 0;
 
-    while(true) {
-        // TODO handle out of bounds _buf
+    while (true) {
+        // TODO handle MAX_RECV_LEN
+
         if (Serial.available() > 0) {
             _buf[recv_buf_len] = Serial.read();
             recv_buf_len++;
@@ -71,21 +90,90 @@ int PCPort::receive() {
 
 void PCPort::transmit(const uint8_t *buf, unsigned int sz) {
     Serial.write(sz);
+    Serial.flush();
     Serial.write(buf, sz);
     Serial.flush();
 }
 
 //
 
-PCPort pcp;
+class StringPort {
+public:
+    void init();
+    void deinit();
+
+    void transmit_string(const String &);
+    String receive();
+
+    void send_ok();
+    void send_error(const String &);
+
+private:
+    PCPort _pcp;
+};
+
+void StringPort::init() {
+    PCPortSettings pcps;
+    _pcp.init(pcps);
+}
+
+void StringPort::deinit() {
+    _pcp.deinit();
+}
+
+void StringPort::transmit_string(const String &str) {
+    _pcp.transmit((const uint8_t *)str.c_str(), str.length());
+}
+
+String StringPort::receive() {
+    _pcp.receive();
+    return String((const char *)_pcp.buffer());
+}
+
+void StringPort::send_ok() {
+    transmit_string("ok");
+}
+
+void StringPort::send_error(const String &msg) {
+    String err("err:");
+    err.concat(msg);
+    transmit_string(err);
+}
+
+StringPort sp;
+
+//
+
+enum ChipType {
+    CHIP_ATMEGA_328P
+} chip_type;
+
+void set_chip(const String &name) {
+    if (name == "atmega328p") {
+        chip_type = CHIP_ATMEGA_328P;
+        toggle_light();
+    }
+}
+
+//
 
 void setup() {
-    PCPortSettings pcps;
-    pcp.init(pcps);
+    pinMode(P_LED, OUTPUT);
+    digitalWrite(P_LED, LOW);
 
-    pcp.transmit("0123456789abcdef0123456789abcdef0123456789abcdef", 48);
+    sp.init();
 }
 
 void loop() {
-    delay(500);
+    String str = sp.receive();
+
+    if (str.startsWith("set:")) {
+        str = str.substring(4);
+        if (str.startsWith("chip:")) {
+            set_chip(str.substring(5));
+            sp.send_ok();
+        }
+    }
+
+    delay(25);
 }
