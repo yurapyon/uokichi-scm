@@ -31,7 +31,7 @@
 
 (define (conditional-split f lst)
   (cadr
-    (foldr
+    (fold-right
       (lambda (obj acc)
         (let ((a-acc (car acc))
               (b-acc (cadr acc)))
@@ -45,7 +45,7 @@
       lst)))
 
 (define (collect f lst)
-  (foldr
+  (fold-right
     (lambda (obj acc)
       (append (f obj) acc))
     '()
