@@ -369,12 +369,12 @@
          arg)
         ((label-access? arg)
          (let* ((label (table-ref label-table (label-access-name arg)))
-                (laddr (label-addr label)))
+                (label-addr (label-addr label)))
            (if (label-access-is-relative arg)
-               (- laddr curr-addr)
-               laddr)))
+               (- label-addr curr-addr 1)
+               label-addr)))
         (else
-         (error "invalid argument"))))
+         (error "invalid argument to fix instruction:" arg))))
     args))
 
 ; returns a flat list of address-tags and words

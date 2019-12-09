@@ -17,7 +17,7 @@ uint8_t hr_nibble_to_byte(char nibble) {
 
 uint8_t hr_byte_to_byte(const char *byte) {
     return (hr_nibble_to_byte(byte[0]) << 4)
-          & hr_nibble_to_byte(byte[1]);
+          | hr_nibble_to_byte(byte[1]);
 }
 
 //
@@ -272,6 +272,30 @@ void Programmer::ATmega328P_end() {
 }
 
 void Programmer::ATmega328P_send_hex() {
+    String hexfile(
+        ":10000000940c00340000000000000000000000001c\n"
+        ":1000080000000000000000000000000000000000e8\n"
+        ":1000100000000000000000000000000000000000e0\n"
+        ":1000180000000000000000000000000000000000d8\n"
+        ":1000200000000000000000000000000000000000d0\n"
+        ":1000280000000000000000000000000000000000c8\n"
+        ":080030000000000000000000c8\n"
+        ":0a0034009a3d9a45c0009845cffca4\n"
+        ":00000001ff\n");
+    int start = 0;
+    int end = -1;
+
+    while(true) {
+        int found = hexfile.indexOf('\n', start);
+        if (found == -1) {
+            break;
+        }
+        end = found;
+        ATmega328P_write_hex_line(hexfile.substring(start, end));
+        // _pcp.send_msg(hexfile.substring(start, end));
+        start = found + 1;
+    }
+
     _pcp.send_done("atmega328p hex");
 }
 
@@ -289,6 +313,14 @@ void Programmer::ATmega328P_load_flash_word(uint16_t addr, uint16_t word) {
     // see atmega328p datasheet, 31.8.2 Serial Programming Algorithm, step 4
     spi_transfer4(0x40, 0x00, addr, word);
     spi_transfer4(0x48, 0x00, addr, word >> 8);
+}
+
+uint16_t Programmer::ATmega328P_read_flash_word(uint16_t addr) {
+    uint8_t low = spi_transfer4(0x20, addr >> 8, addr, 0x00);
+    uint8_t high = spi_transfer4(0x28, addr >> 8, addr, 0x00);
+    uint16_t ret = high;
+    ret = (ret << 8) | low;
+    return ret;
 }
 
 void Programmer::ATmega328P_write_flash_page(uint16_t addr) {
@@ -335,19 +367,25 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
     addr = (addr << 8) | addr_low;
     uint16_t page = ATmega328P_flash_page_of(addr);
 
+    _pcp.send_msg(line);
+    // _pcp.send_msg(String(word_ct, HEX));
+    // _pcp.send_msg(String(addr, HEX));
+    // _pcp.send_msg(String(type, HEX));
+
     uint16_t curr_addr = addr;
     uint16_t curr_page = page;
 
     cline += 9;
 
     for (int i = 0; i < word_ct; ++i) {
-        uint8_t data_high = hr_byte_to_byte(cline + i * 2);
-        uint8_t data_low = hr_byte_to_byte(cline + i * 2 + 1);
+        uint8_t data_high = hr_byte_to_byte(cline + i * 4);
+        uint8_t data_low = hr_byte_to_byte(cline + i * 4 + 2);
         uint16_t data = data_high;
         data = (data << 8) | data_low;
 
         ATmega328P_load_flash_word(curr_addr, data);
 
+        // TODO make sure this works
         if(curr_page != ATmega328P_flash_page_of(curr_addr + 1)) {
             // if you dont have data to write after this
             //   just break and let the finalizer write this page
@@ -364,9 +402,24 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
 
     ATmega328P_write_flash_page(curr_addr);
 
-    cline = line.c_str();
+    cline = line.c_str() + 9;
+    curr_addr = addr;
 
-    // TODO check write went ok
+    for (int i = 0; i < word_ct; ++i) {
+        uint8_t data_high = hr_byte_to_byte(cline + i * 4);
+        uint8_t data_low = hr_byte_to_byte(cline + i * 4 + 2);
+        uint16_t data = data_high;
+        data = (data << 8) | data_low;
+        // _pcp.send_msg(String(data, HEX));
+
+        uint16_t from_chip = ATmega328P_read_flash_word(curr_addr);
+        // _pcp.send_msg(String(from_chip, HEX));
+
+        // TODO check write went ok
+
+        curr_addr++;
+    }
+
     // TODO handle eeprom addr (addr > 0x8000)
 
     return HEX_LINE_OK;

@@ -43,6 +43,7 @@ public:
     ~Programmer();
 
     bool set_chip(const string &);
+    bool set_fuses(uint16_t);
     bool send_hex_file(const string &);
 
 private:

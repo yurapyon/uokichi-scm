@@ -88,6 +88,7 @@ private:
 
     uint16_t ATmega328P_flash_page_of(uint16_t addr);
     void ATmega328P_load_flash_word(uint16_t addr, uint16_t word);
+    uint16_t ATmega328P_read_flash_word(uint16_t addr);
     void ATmega328P_write_flash_page(uint16_t addr);
     HexLineErrCode ATmega328P_write_hex_line(const String &line);
 };

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 
 #include <string.h>  // strlen
 
@@ -7,6 +8,10 @@
 #include <termios.h> // termios
 
 #include "serial.hpp"
+
+//
+
+// TODO query programmer for buffer size
 
 //
 
@@ -197,6 +202,13 @@ bool Programmer::send_hex_file(const string &hex_file) {
     }
 
     _ap.transmit_string("prog:send_hex");
+
+    istringstream iss(hex_file);
+    string line;
+    while (getline(iss, line)) {
+        _ap.transmit_string(line);
+    }
+
     if(!_ap.wait_for_done()) {
         return false;
     }
@@ -212,13 +224,24 @@ bool Programmer::send_hex_file(const string &hex_file) {
 //
 
 int main() {
+
+    string hex_file =
+        ":10000000940c00340000000000000000000000001c\n"
+        ":1000080000000000000000000000000000000000e8\n"
+        ":1000100000000000000000000000000000000000e0\n"
+        ":1000180000000000000000000000000000000000d8\n"
+        ":1000200000000000000000000000000000000000d0\n"
+        ":1000280000000000000000000000000000000000c8\n"
+        ":080030000000000000000000c8\n"
+        ":0a0034009a3d9a45c0009845cffca4\n"
+        ":00000001ff\n";
     Programmer p;
 
     cout << "starting transmission" << endl;
 
     p.set_chip("atmega328p");
     cout << "set chip" << endl;
-    p.send_hex_file("it is a hex file");
+    p.send_hex_file(hex_file);
     cout << "sent hex" << endl;
 
     return 0;
