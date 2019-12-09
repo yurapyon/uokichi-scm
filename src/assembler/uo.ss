@@ -1,6 +1,8 @@
 ; todo label-access 'resolver'
 ;        so you can do (- (%r 'label) 1)
 
+(include "uo_c.ss")
+
 ; TODO write myself {
 
 (define (_flatten lst acc stk)

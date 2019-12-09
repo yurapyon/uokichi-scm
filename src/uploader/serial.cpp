@@ -183,9 +183,10 @@ bool ArduinoPort::wait_for_done() {
 //
 
 Programmer::Programmer() {
+    // TODO handle errors if cant open device
+
     ArduinoPortSettings aps;
     _ap.init(aps);
-    // TODO handle error
     _ap.wait_for_done();
 }
 
@@ -233,6 +234,7 @@ bool Programmer::send_hex_file(const string &hex_file) {
 
 //
 
+/*
 int main() {
     string hex_file =
         ":10000000940c00340000000000000000000000001c\n"
@@ -255,3 +257,4 @@ int main() {
 
     return 0;
 }
+*/

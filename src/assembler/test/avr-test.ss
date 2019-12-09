@@ -1,5 +1,3 @@
-(include "avr.ss")
-
 (define code
   (list
     (@ #x0000)
@@ -38,10 +36,10 @@
     (% 'loop)
     (.sbi (&portc) (&portc 5))
     (.rjmp 0)
+    (.rjmp 0)
     (.cbi (&portc) (&portc 5))
     (.rjmp (%r 'loop))))
 
-(define (save)
-  (call-with-output-file "avr_test.hex"
-    (lambda (file)
-      (display (avr16-compile code) file))))
+(define (cu)
+  (load "test/avr-test.ss")
+  (avr16-compile-and-upload code))

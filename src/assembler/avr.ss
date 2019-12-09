@@ -1,5 +1,4 @@
-(include "uo.ss")
-(include "uo_macros.ss")
+(include "macros.ss")
 
 (define-macro (defsimple . args)
   `(define-simple-instruction ,@args))
@@ -127,8 +126,9 @@
 
 (defsimple "direct"  "dddddddddddddddd" "d")
 
-(define (.sbr d k) (.ori d (ash 1 k)))
-(define (.cbr d k) (.andi d (lognot (ash 1 k))))
+; TODO fix
+; (define (.sbr d k) (.ori d (ash 1 k)))
+; (define (.cbr d k) (.andi d (lognot (ash 1 k))))
 
 (define (.tst d) (.and d d))
 
@@ -305,8 +305,26 @@
 
 ;
 
+(define avr16-programmer (make-parameter #f))
+
+(define (avr16-init)
+  (let ((p (make-programmer)))
+    (avr16-programmer p)
+    (programmer-set-chip p "atmega328p")))
+
+(define (avr16-deinit)
+  (avr16-programmer #f)
+  (##gc))
+
 (define (avr16-compile lst)
   (compile (make-code (flatten lst))
            (make-compile-settings (make-hex-record 'eof #x0000 '())
                                   8
                                   2)))
+
+(define (avr16-compile-and-upload lst)
+  (when (not (avr16-programmer))
+    (avr16-init))
+  (programmer-send-hex-file
+    (avr16-programmer)
+    (avr16-compile lst)))

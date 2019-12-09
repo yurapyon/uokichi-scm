@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-
-g++ -W -Wall serial.cpp -o main -I./include

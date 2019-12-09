@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+
+g++ -W -Wall -fPIC -Iinclude -c wrapper.cpp -o obj/wrapper.o
+g++ -W -Wall -fPIC -Iinclude -c serial.cpp -o obj/serial.o
+
+g++ -shared -fPIC -Wl,-soname,libuo.so.0 obj/wrapper.o obj/serial.o -o libuo.so.0

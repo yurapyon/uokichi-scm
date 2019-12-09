@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+cp libuo.so.0 /usr/local/lib/
+ln -s /usr/local/lib/libuo.so.0 /usr/local/lib/libuo.so
+
+rm -r /usr/local/include/uo
+cp -r include /usr/local/include/uo
