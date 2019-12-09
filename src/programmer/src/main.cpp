@@ -3,6 +3,9 @@
 
 #include "main.hpp"
 
+// TODO use smaller protocol for sending "done"
+//        after exer hex line for syncs
+
 uint8_t hr_nibble_to_byte(char nibble) {
     if (nibble >= '0' && nibble <= '9') {
         return nibble - 0x30;
@@ -272,31 +275,26 @@ void Programmer::ATmega328P_end() {
 }
 
 void Programmer::ATmega328P_send_hex() {
-    String hexfile(
-        ":10000000940c00340000000000000000000000001c\n"
-        ":1000080000000000000000000000000000000000e8\n"
-        ":1000100000000000000000000000000000000000e0\n"
-        ":1000180000000000000000000000000000000000d8\n"
-        ":1000200000000000000000000000000000000000d0\n"
-        ":1000280000000000000000000000000000000000c8\n"
-        ":080030000000000000000000c8\n"
-        ":0a0034009a3d9a45c0009845cffca4\n"
-        ":00000001ff\n");
-    int start = 0;
-    int end = -1;
+    _pcp.send_done("ready for hex file");
 
-    while(true) {
-        int found = hexfile.indexOf('\n', start);
-        if (found == -1) {
-            break;
+    HexLineErrorCode res;
+    String hex_line;
+
+    while (true) {
+        hex_line = _pcp.receive_string();
+        res = ATmega328P_write_hex_line(hex_line);
+        switch (res) {
+        case HEX_LINE_ERR_ERROR:
+            _pcp.send_fail("failure");
+            return;
+        case HEX_LINE_ERR_EOF:
+            _pcp.send_done("wrote hex_file");
+            return;
+        case HEX_LINE_ERR_OK:
+            _pcp.send_done(hex_line);
+            continue;
         }
-        end = found;
-        ATmega328P_write_hex_line(hexfile.substring(start, end));
-        // _pcp.send_msg(hexfile.substring(start, end));
-        start = found + 1;
     }
-
-    _pcp.send_done("atmega328p hex");
 }
 
 void Programmer::ATmega328P_set_fuses(const String &str) {
@@ -332,7 +330,7 @@ void Programmer::ATmega328P_write_flash_page(uint16_t addr) {
 
 // TODO something like parse hex line to a struct or something
 
-HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
+HexLineErrorCode Programmer::ATmega328P_write_hex_line(const String &line) {
     // hex line
     // ":SZaddrTYdatadata....ch"
     //  01 3   7 9
@@ -341,7 +339,7 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
 
     if (cline[0] != ':') {
         _pcp.send_warning("invalid hex line");
-        return HEX_LINE_ERROR;
+        return HEX_LINE_ERR_ERROR;
     }
 
     uint8_t word_ct = hr_byte_to_byte(cline + 1) / 2;
@@ -349,13 +347,13 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
     uint8_t addr_low = hr_byte_to_byte(cline + 5);
     uint8_t type = hr_byte_to_byte(cline + 7);
 
-    if (type == HEX_TYPE_EOF) {
-        return HEX_LINE_EOF;
+    if (type == HEX_LINE_TYPE_EOF) {
+        return HEX_LINE_ERR_EOF;
     }
 
-    if (type != HEX_TYPE_DATA) {
+    if (type != HEX_LINE_TYPE_DATA) {
         _pcp.send_warning("invalid hex line");
-        return HEX_LINE_ERROR;
+        return HEX_LINE_ERR_ERROR;
     }
 
     // check hex line is valid
@@ -366,11 +364,6 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
     uint16_t addr = addr_high;
     addr = (addr << 8) | addr_low;
     uint16_t page = ATmega328P_flash_page_of(addr);
-
-    _pcp.send_msg(line);
-    // _pcp.send_msg(String(word_ct, HEX));
-    // _pcp.send_msg(String(addr, HEX));
-    // _pcp.send_msg(String(type, HEX));
 
     uint16_t curr_addr = addr;
     uint16_t curr_page = page;
@@ -410,19 +403,17 @@ HexLineErrCode Programmer::ATmega328P_write_hex_line(const String &line) {
         uint8_t data_low = hr_byte_to_byte(cline + i * 4 + 2);
         uint16_t data = data_high;
         data = (data << 8) | data_low;
-        // _pcp.send_msg(String(data, HEX));
 
         uint16_t from_chip = ATmega328P_read_flash_word(curr_addr);
-        // _pcp.send_msg(String(from_chip, HEX));
 
-        // TODO check write went ok
+        // TODO report if write went ok
 
         curr_addr++;
     }
 
     // TODO handle eeprom addr (addr > 0x8000)
 
-    return HEX_LINE_OK;
+    return HEX_LINE_ERR_OK;
 }
 
 //

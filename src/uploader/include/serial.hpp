@@ -28,6 +28,8 @@ public:
     void transmit_string(const string &);
     bool wait_for_done();
 
+    bool verbose = true;
+
 private:
     int _fd;
     vector<uint8_t> _buf;

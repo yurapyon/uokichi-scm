@@ -156,15 +156,23 @@ bool ArduinoPort::wait_for_done() {
         receive();
         string responce((const char *)_buf.data());
         if (!responce.compare(0, 5, "done:")) {
-            cout << "pDone: " << responce.substr(5) << endl;
+            if (verbose) {
+                cout << "pDone: " << responce.substr(5) << endl;
+            }
             return true;
         } else if (!responce.compare(0, 5, "fail:")) {
-            cerr << "pFail: " << responce.substr(5) << endl;
+            if (verbose) {
+                cerr << "pFail: " << responce.substr(5) << endl;
+            }
             return false;
         } else if (!responce.compare(0, 4, "msg:")) {
-            cout << "pMsg: " << responce.substr(4) << endl;
+            if (verbose) {
+                cout << "pMsg: " << responce.substr(4) << endl;
+            }
         } else if (!responce.compare(0, 5, "warn:")) {
-            cerr << "pWarning: " << responce.substr(5) << endl;
+            if (verbose) {
+                cerr << "pWarning: " << responce.substr(5) << endl;
+            }
         } else {
             cerr << "strange message: " << responce << endl;
             return false;
@@ -202,15 +210,17 @@ bool Programmer::send_hex_file(const string &hex_file) {
     }
 
     _ap.transmit_string("prog:send_hex");
+    if(!_ap.wait_for_done()) {
+        return false;
+    }
 
     istringstream iss(hex_file);
     string line;
     while (getline(iss, line)) {
         _ap.transmit_string(line);
-    }
-
-    if(!_ap.wait_for_done()) {
-        return false;
+        if(!_ap.wait_for_done()) {
+            return false;
+        }
     }
 
     _ap.transmit_string("prog:end");
@@ -224,7 +234,6 @@ bool Programmer::send_hex_file(const string &hex_file) {
 //
 
 int main() {
-
     string hex_file =
         ":10000000940c00340000000000000000000000001c\n"
         ":1000080000000000000000000000000000000000e8\n"

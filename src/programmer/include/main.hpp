@@ -39,14 +39,14 @@ enum ChipType {
 };
 
 enum HexLineType {
-    HEX_TYPE_DATA = 0 ,
-    HEX_TYPE_EOF = 1
+    HEX_LINE_TYPE_DATA = 0 ,
+    HEX_LINE_TYPE_EOF = 1
 };
 
-enum HexLineErrCode {
-    HEX_LINE_OK ,
-    HEX_LINE_EOF ,
-    HEX_LINE_ERROR
+enum HexLineErrorCode {
+    HEX_LINE_ERR_OK ,
+    HEX_LINE_ERR_EOF ,
+    HEX_LINE_ERR_ERROR
 };
 
 class Programmer {
@@ -90,7 +90,7 @@ private:
     void ATmega328P_load_flash_word(uint16_t addr, uint16_t word);
     uint16_t ATmega328P_read_flash_word(uint16_t addr);
     void ATmega328P_write_flash_page(uint16_t addr);
-    HexLineErrCode ATmega328P_write_hex_line(const String &line);
+    HexLineErrorCode ATmega328P_write_hex_line(const String &line);
 };
 
 #endif
