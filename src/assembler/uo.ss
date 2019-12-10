@@ -1,9 +1,11 @@
 ; todo label-access 'resolver'
 ;        so you can do (- (%r 'label) 1)
-
-(include "uo_c.ss")
-
-; TODO write myself {
+;        or just (%r 'label -1) will add -1 to it
+; check opdef arg bitcount
+;   dont let supplied args be truncated? or at least warn
+; when checking for addr tag as first obj in list
+;   make sure list isnt '()
+; todo figure out word size use multiples of 8 or bitsz ?
 
 (define (_flatten lst acc stk)
   (cond
@@ -27,8 +29,6 @@
 
 (define (flatten lst)
   (_flatten lst '() '()))
-
-; }
 
 (define (take n lst)
   (let rec ((n n)
@@ -82,6 +82,29 @@
       (append (f obj) acc))
     '()
     lst))
+
+(define (filtermap f lst)
+  (fold-right
+    (lambda (obj acc)
+      (let ((t (f obj)))
+        (if t
+            (cons t acc)
+            acc)))
+    '()
+    lst))
+
+(define (filter f lst)
+  (fold-right
+    (lambda (obj acc)
+      (let ((t (f obj)))
+        (if t
+            (cons obj acc)
+            acc)))
+    '()
+    lst))
+
+(define (zip a b)
+  (map cons a b))
 
 ;
 
@@ -169,9 +192,7 @@
 (define (opdef-apply opd arg-vals)
   (apply .i (opdef-base opd) (map bitwise-eat (opdef-args opd) arg-vals)))
 
-; to be able to show the opdef of this idef you need to not use a closure for apply-fn
-; use structs for different data but then idef need apply-fn and data
-;   so different instruction sets can define new idef types
+;
 
 (define-type idef
   read-only:
@@ -227,6 +248,25 @@
 (define-type address-tag
   read-only:
   addr)
+
+; generates an address image of lst (that has address tags in it)
+; where f is a function that takes an obj (not an addr tag) and the current address
+;   and returns the next address
+; assumes car of list is addr-tag
+(define (gen-address-image f lst)
+  (let rec ((lst lst)
+            (curr-addr (address-tag-addr (car lst)))
+            (acc '()))
+    (if (null? lst)
+        (reverse! acc)
+        (let* ((obj (car lst))
+               (next-addr
+                 (if (address-tag? obj)
+                     (address-tag-addr obj)
+                     (f obj curr-addr))))
+          (rec (cdr lst)
+               next-addr
+               (cons curr-addr acc))))))
 
 ;
 
@@ -308,44 +348,27 @@
   addr-image
   label-table)
 
-(define (make-code lst)
-  (let ((addr-image (gen-addr-image lst)))
-    (_make-code lst
-                addr-image
-                (gen-label-table lst addr-image))))
-
 (define (code-object? obj)
   (or (address-tag? obj)
       (label-tag? obj)
       (instruction? obj)))
 
-(define (gen-addr-image lst)
+(define (make-code lst)
   (when (not (address-tag? (car lst)))
     (error "code must begin with an address tag"))
-  (reverse!
-    (cadr
-      (fold
-        (lambda (obj acc)
-          (let ((curr-addr (car acc))
-                (addr-acc (cadr acc)))
-            (cond
-              ((address-tag? obj)
-               (let ((next-addr (address-tag-addr obj)))
-                 (list
-                   next-addr
-                   (cons next-addr addr-acc))))
-              ((instruction? obj)
-               (list
-                 (+ curr-addr (idef-word-ct (instruction-idef obj)))
-                 (cons curr-addr addr-acc)))
-              ((code-object? obj)
-               (list
-                 curr-addr
-                 (cons curr-addr addr-acc)))
-              (else
-               (error "invalid object in code")))))
-        `(-1 ())
-        lst))))
+  (let ((addr-image (gen-address-image
+                      (lambda (obj curr-addr)
+                        (cond
+                          ((instruction? obj)
+                           (+ curr-addr (idef-word-ct (instruction-idef obj))))
+                          ((code-object? obj)
+                           curr-addr)
+                          (else
+                           (error "invalid object in code:" obj))))
+                      lst)))
+    (_make-code lst
+                addr-image
+                (gen-label-table lst addr-image))))
 
 (define (gen-label-table lst addr-image)
   (let ((ret (make-table)))
@@ -353,16 +376,16 @@
       (lambda (obj addr)
         (when (label-tag? obj)
           (let ((name (label-tag-name obj)))
-            (table-set! ret name (make-label name addr)))))
+            (if (table-ref ret name #f)
+                (error "duplicate label:" name addr)
+                (table-set! ret name (make-label name addr))))))
       lst
       addr-image)
     ret))
 
 ;
 
-; todo errors for label not found
-;      verify math is right for (- laddr curr-addr)
-
+; note: assumes math for reljumps based on atmega328p hardware
 (define (fix-instruction-args args label-table curr-addr)
   (map
     (lambda (arg)
@@ -370,13 +393,16 @@
         ((number? arg)
          arg)
         ((label-access? arg)
-         (let* ((label (table-ref label-table (label-access-name arg)))
-                (label-addr (label-addr label)))
-           (if (label-access-is-relative arg)
-               (- label-addr curr-addr 1)
-               label-addr)))
+         (let* ((name (label-access-name arg))
+                (label (table-ref label-table name #f)))
+            (if (not label)
+                (error "label not found:" name)
+                (let ((addr (label-addr label)))
+                  (if (label-access-is-relative arg)
+                      (- addr curr-addr 1)
+                      addr)))))
         (else
-         (error "invalid argument to fix instruction:" arg))))
+         (error "instruction argument must be number or label-access:" arg))))
     args))
 
 ; returns a flat list of address-tags and words
@@ -433,39 +459,58 @@
     (newline p)
     (get-output-string p)))
 
-;
+; memory
 
-; note: can use '_ in names as a way of saying bit is not named
-; expects names to be a list of strings
-;   but resolver expects val to be a symbol
-
-(define-type rdef
+(define-type mfield
   read-only:
+  mtype
   name
-  base-addr
-  names)
+  address)
 
-(define (make-rdef-resolver rd)
-  (lambda lst
-    (if (null? lst)
-        (rdef-base-addr rd)
-        (let ((val (car lst)))
-          (cond
-            ((number? val)
-             val)
-            ((symbol? val)
-             (if (symbol=? val '_)
-                 (rdef-base-addr rd)
-                 (let* ((name (symbol->string val))
-                        (name-ct (length (rdef-names rd)))
-                        (names-rest (member name (rdef-names rd))))
-                  (if (not names-rest)
-                      (error "register name not found")
-                      (- (length names-rest) 1)))))
-            (else
-             (error "must call resolver with symbol")))))))
+(define-type mtype
+  read-only:
+  constructor: _make-mtype
+  name
+  sz
+  mfields)
 
-;
+(define (make-mtype name lst)
+  (when (not (address-tag? (car lst)))
+    (error "memory declaration must begin with address tag:" name))
+  (let* ((addr-image (gen-address-image
+                       (lambda (mfield curr-addr)
+                         (when (not (mfield? mfield))
+                           (error "memory declaration must only contain addr-tags and mfields"))
+                         (+ curr-addr (mtype-sz (mfield-mtype mfield))))
+                       lst))
+         (new-mfields (filtermap
+                        (lambda (pair)
+                          (let ((obj (car pair))
+                                (addr (cdr pair)))
+                            (cond
+                              ((address-tag? obj)
+                               #f)
+                              ((mfield? obj)
+                               (make-mfield (mfield-mtype obj)
+                                            (mfield-name obj)
+                                            addr)))))
+                        (zip lst addr-image)))
+         (max-sz
+           (fold
+             (lambda (obj addr acc)
+               (cond
+                 ((address-tag? obj)
+                  (max addr acc))
+                 ((mfield? obj)
+                  (max (+ addr (mtype-sz (mfield-mtype obj))) acc))))
+             -1
+             lst
+             addr-image)))
+    (_make-mtype name
+                 max-sz
+                 new-mfields)))
+
+; aliases
 
 (define (@ addr)
   (make-address-tag addr))
@@ -479,86 +524,7 @@
 (define (%a name)
   (make-label-access name #f))
 
-#|
+(define (var type name)
+  (make-mfield type name -1))
 
-(define-type instruction-set
-  read-only:
-  constructor: _make-instruction-set
-  name
-  idefs
-  word-sz)
-
-(define (make-instruction-set name word-sz)
-  _make-instruction-set name (make-table) word-sz)
-
-(define (instruction-set-get-idef iset name)
-  (table-ref (instruction-set-idefs iset) name))
-
-(define (instruction-set-add-idef! iset name idef)
-  (table-set! (instruction-set-idefs iset) name idef))
-
-;
-
-(define current-instruction-set (make-parameter))
-
-(define (gen-instruction-method name)
-  (let* ((iset (current-instruction-set))
-         (idef (instruction-set-get-idef iset name)))
-    (lambda (. args)
-      (when (not (= (length args) (idef-arg-ct idef)))
-        (error "arity mismatch"))
-      (make-instruction idef
-                        args))))
-
-; example
-
-(define iset-avr16 (make-instruction-set "avr16" 16))
-(current-instruction-set iset-avr16)
-
-(define (add-idef! name idef)
-  (instruction-set-add-idef! iset-avr16 name idef))
-
-;
-
-(define .sreg (gen-register-finder "sreg"))
-
-(.sreg 't)
-
-(define-type architecture
-  read-only:
-  instruction-set
-  registers
-  memory-banks
-  ram)
-
-(define-type ram
-  read-only:
-  start
-  end)
-
-|#
-
-; todo figure out word size use multiples of 8 or bitsz ?
-
-(define idef-add (make-simple-idef  "add" (make-opdef "11000000aaaabbbb" "ab")))
-(define idef-sub (make-simple-idef  "sub" (make-opdef "11000001aaaabbbb" "ab")))
-(define idef-jmp (make-shifted-idef "jmp" 2 (make-opdef "111100000000aaaa" "a")))
-
-(define lst
-  (list
-    (make-address-tag #x00)
-    (make-label-tag "reset")
-    (make-instruction idef-add '(1 2))
-    (make-instruction idef-sub '(3 4))
-    (make-instruction idef-jmp '(#xdead1234))
-    (make-instruction idef-jmp '(#xbeef5678))
-    (make-address-tag #x08)
-    (make-label-tag "eight")
-    (make-instruction idef-add '(5 6))
-    (make-instruction idef-sub '(7 8))))
-
-(define code-lst (make-code lst))
-
-(define settings (make-compile-settings (make-hex-record 'eof #x0000 '())
-                                        3
-                                        2))
+(define u8 (_make-mtype "u8" 1 '()))

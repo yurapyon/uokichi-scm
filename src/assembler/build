@@ -1,13 +1,14 @@
 #!/usr/bin/env sh
 
 # compile to c
+gambitc -o obj -c uo_c.ss || exit
 gambitc -o obj -c uo.ss || exit
 gambitc -o obj -c avr.ss || exit
 
 # generate link file
-gambitc -link -flat -o obj/avr.o1.c obj/uo.c obj/avr.c || exit
+gambitc -link -flat -o obj/avr.o1.c obj/uo_c.c obj/uo.c obj/avr.c || exit
 
 # compile
-gambitc -o obj -cc-options "-D___DYNAMIC" -obj obj/uo.c obj/avr.c obj/avr.o1.c || exit
+gambitc -o obj -cc-options "-D___DYNAMIC" -obj obj/uo_c.c obj/uo.c obj/avr.c obj/avr.o1.c || exit
 
-gcc -shared obj/uo.o obj/avr.o obj/avr.o1.o -o avr.o1 -luo || exit
+gcc -shared obj/uo_c.o obj/uo.o obj/avr.o obj/avr.o1.o -o avr.o1 -luo || exit

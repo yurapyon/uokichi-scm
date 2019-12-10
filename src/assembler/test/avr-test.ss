@@ -31,13 +31,12 @@
 
     (@ #x34)
     (% 'begin)
-    (.sbi (&ddrc) (&ddrc 5))
+    (.sbi (&ddrc) 5)
 
     (% 'loop)
-    (.sbi (&portc) (&portc 5))
+    (.sbi (&portc) 5)
     (.rjmp 0)
-    (.rjmp 0)
-    (.cbi (&portc) (&portc 5))
+    (.cbi (&portc) 5)
     (.rjmp (%r 'loop))))
 
 (define (cu)

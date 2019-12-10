@@ -1,6 +1,42 @@
+:
+  todos
+  cleanup
+  error checking
+    make programmer / connect to arduino
+  pic stuff
+  look into if x86 stuff can work
+
 a:
   memory
   documentation facilities
+    instructions / opdefs
+      for idef types, just build documentation out of opdef spec-str
+        just make a string and keep it in idef struct
+
+        maybe keep everything else unprintable so instruction documentation
+        is as easy as
+          '> .add.idef'
+          in repl
+
+          (doc .add) where doc is some 'method' inst bad either
+    registers
 
 u+p:
-  test with actual code
+  rename send_hex_file to write_hex_file
+  communication
+    >
+      send_sync(bool failed)
+      send_msg(string msg)
+      send an error message before sending failed sync
+      sync is a marker for whenever a task is finished
+    use bytes instead of strings?
+      set_chip and stuff can use enums
+      faster overall for sure and better memory usage
+  eeprom
+  fuse/lock
+
+p:
+  check checksums
+  better memory usage (global buffers and stuff)
+
+vim: syntax=off
