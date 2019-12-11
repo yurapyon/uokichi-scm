@@ -230,13 +230,50 @@
                   (error "register name not found")
                   (- (length names-rest) 1)))))))))
 
+"avr register: _name_ sram-addr: _a_ _[gp io]_ _bit-names: _"
+(define (avr-register-make-documentation reg)
+  (let* ((p (open-output-string))
+         (name (avr-register-name reg))
+         (sram-addr (avr-register-sram-addr reg))
+         (bit-names (avr-register-bit-names reg))
+         (has-gp (and (_avr-register-gp-addr reg) #t))
+         (has-io (and (_avr-register-io-addr reg) #t))
+         (has-bit-names (not (null? bit-names))))
+    (display "REG: " p)
+    (display name p)
+    (display " | ADDR: #x" p)
+    (display (number->hex-string sram-addr 2) p)
+    (display " [" p)
+    (display
+      (cond
+        ((and has-gp has-io)
+         "gp io")
+        (has-gp
+         "gp")
+        (has-io
+         "io")
+        (else ""))
+      p)
+    (display "]" p)
+    (when has-bit-names
+      (display " | " p)
+      (for-each
+        (lambda (bname)
+          (display bname p)
+          (display " " p))
+        bit-names))
+    (get-output-string p)))
+
 (define-macro (defregister name sram-addr . names)
   (include "macros.incl.ss")
   (let ((resolver-name (build-symbol "&" name))
         (reg-name (build-symbol "&" name ".reg")))
     `(begin
        (define ,reg-name (make-avr-register ,(symbol->string name) ,sram-addr (list ,@(map symbol->string names))))
-       (define ,resolver-name (make-avr-register-resolver ,reg-name)))))
+       (define ,resolver-name (make-avr-register-resolver ,reg-name))
+       (let ((doc-str (avr-register-make-documentation ,reg-name)))
+         (document! ,reg-name doc-str)
+         (document! ,resolver-name doc-str)))))
 
 (defregister  r0 #x00)
 (defregister  r1 #x01)

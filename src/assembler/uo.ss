@@ -1,34 +1,43 @@
-; todo label-access 'resolver'
-;        so you can do (- (%r 'label) 1)
-;        or just (%r 'label -1) will add -1 to it
+; todo
+; label-access 'resolver'
+;   so you can do (- (%r 'label) 1)
+;   or just (%r 'label -1) will add -1 to it
+;   label-access offset
 ; check opdef arg bitcount
 ;   dont let supplied args be truncated? or at least warn
 ; when checking for addr tag as first obj in list
 ;   make sure list isnt '()
-; todo figure out word size use multiples of 8 or bitsz ?
-
-(define (_flatten lst acc stk)
-  (cond
-    ((null? lst)
-     (if (null? stk)
-         (reverse! acc)
-         (_flatten (car stk)
-                   acc
-                   (cdr stk))))
-    ((pair? (car lst))
-     (_flatten (car lst)
-               acc
-               (if (null? (cdr lst))
-                   stk
-                   (cons (cdr lst)
-                         stk))))
-    (else
-     (_flatten (cdr lst)
-               (cons (car lst) acc)
-               stk))))
+; figure out word size use multiples of 8 or bitsz ?
+; shifted-idef can use size of opcode to determine shift-sz
+; personal foldl and foldr
+;   take one lst
 
 (define (flatten lst)
-  (_flatten lst '() '()))
+  (let rec ((lst lst)
+            (stack '())
+            (acc '()))
+    (cond
+      ((null? lst)
+       (if (null? stack)
+           (reverse! acc)
+           (rec (car stack)
+                (cdr stack)
+                acc)))
+      ((not (pair? lst))
+       (rec '()
+            stack
+            (cons lst acc)))
+      (else
+       (let ((obj (car lst)))
+         (if (pair? obj)
+             (if (null? (cdr lst))
+                 (rec obj stack acc)
+                 (rec obj
+                      (cons (cdr lst) stack)
+                      acc))
+             (rec (cdr lst)
+                  stack
+                  (cons obj acc))))))))
 
 (define (take n lst)
   (let rec ((n n)
@@ -36,7 +45,7 @@
             (acc '()))
     (if (or (null? lst)
             (>= 0 n))
-        (reverse acc)
+        (reverse! acc)
         (rec (- n 1)
              (cdr lst)
              (cons (car lst) acc)))))
@@ -56,24 +65,24 @@
   (let rec ((lst lst)
             (acc '()))
     (if (null? lst)
-        (reverse acc)
+        (reverse! acc)
         (rec (drop n lst)
              (cons (take n lst)
                    acc)))))
 
 (define (conditional-split f lst)
-  (cadr
+  (cdr
     (fold-right
       (lambda (obj acc)
         (let ((a-acc (car acc))
-              (b-acc (cadr acc)))
+              (b-acc (cdr acc)))
           (if (f obj)
-              (list '()
+              (cons '()
                     (cons (cons obj a-acc)
                           b-acc))
-              (list (cons obj a-acc)
+              (cons (cons obj a-acc)
                     b-acc))))
-      '(() ())
+      '(() . ())
       lst)))
 
 (define (collect f lst)
@@ -249,6 +258,8 @@
   read-only:
   addr)
 
+; todo use base addr?
+
 ; generates an address image of lst (that has address tags in it)
 ; where f is a function that takes an obj (not an addr tag) and the current address
 ;   and returns the next address
@@ -407,23 +418,24 @@
 
 ; returns a flat list of address-tags and words
 (define (code->words code _settings)
-  (fold-right
-    (lambda (obj addr acc)
-      (cond
-        ((instruction? obj)
-         (let* ((apply-fn (idef-apply-fn (instruction-idef obj)))
-                (fixed-args (fix-instruction-args (instruction-args obj)
-                                                  (code-label-table code)
-                                                  addr))
-                (words (apply-fn fixed-args)))
-           (append words acc)))
-        ((address-tag? obj)
-         (cons obj acc))
-        (else
-         acc)))
-    '()
-    (code-code code)
-    (code-addr-image code)))
+  (collect
+    (lambda (pair)
+      (let ((obj (car pair))
+            (addr (cdr pair)))
+        (cond
+          ((instruction? obj)
+           (let* ((apply-fn (idef-apply-fn (instruction-idef obj)))
+                  (fixed-args (fix-instruction-args (instruction-args obj)
+                                                    (code-label-table code)
+                                                    addr))
+                  (words (apply-fn fixed-args)))
+             words))
+          ((address-tag? obj)
+           (list obj))
+          (else
+           '()))))
+    (zip (code-code code)
+         (code-addr-image code))))
 
 (define (gen-hex-records words settings)
   (let ((words-per-record (compile-settings-words-per-record settings))
@@ -465,7 +477,7 @@
   read-only:
   mtype
   name
-  address)
+  addr)
 
 (define-type mtype
   read-only:
@@ -510,6 +522,59 @@
                  max-sz
                  new-mfields)))
 
+(define (make-primitive-mtype name sz)
+  (_make-mtype name sz '()))
+
+(define (mtype-get-field mtype name)
+  (let ((field* (member name
+                        (mtype-mfields mtype)
+                        (lambda (name field)
+                          (string=? (mfield-name field) name)))))
+    (when (not field*)
+      (error "mtype has no field named:" (mtype-name mtype) name))
+    (car field*)))
+
+(define-type mchain
+  read-only:
+  constructor: _make-mchain
+  mfields)
+
+(define (make-mchain base names)
+  (let rec ((lst names)
+            (last-mtype base)
+            (acc '()))
+    (if (null? lst)
+        (_make-mchain (reverse! acc))
+        (let* ((name (car lst))
+               (field (mtype-get-field last-mtype name)))
+          (rec (cdr lst)
+               (mfield-mtype field)
+               (cons field acc))))))
+
+(define (mchain-offset-of mchain)
+  (fold
+    (lambda (field acc)
+      (+ acc (mfield-addr field)))
+    0
+    (mchain-mfields mchain)))
+
+(define (mchain-size-of mchain)
+  (mtype-sz (mfield-mtype (last (mchain-mfields mchain)))))
+
+; documentation
+
+(define doc-table (make-table test: eq?))
+
+(define (document! obj str)
+  (table-set! doc-table obj str))
+
+(define (get-documentation obj)
+  (let ((found (table-ref doc-table obj #f)))
+    (or found (error "no documentation exists for:" obj))))
+
+(define (doc obj)
+  (println (get-documentation obj)))
+
 ; aliases
 
 (define (@ addr)
@@ -524,7 +589,47 @@
 (define (%a name)
   (make-label-access name #f))
 
-(define (var type name)
-  (make-mfield type name -1))
+;
 
-(define u8 (_make-mtype "u8" 1 '()))
+(define (mem name . fields)
+  (make-mtype (symbol->string name)
+              fields))
+
+(define (basic name sz)
+  (make-primitive-mtype (symbol->string name) sz))
+
+(define (var type name)
+  (make-mfield type (symbol->string name) -1))
+
+(define (offset-of base c1 . chain)
+  (let ((c1-str (symbol->string c1))
+        (chain-strs (map symbol->string chain)))
+    (if (null? chain-strs)
+        (mfield-addr (mtype-get-field base c1-str))
+        (mchain-offset-of (make-mchain base (cons c1-str chain-strs))))))
+
+(define (size-of base . chain)
+  (let ((chain-strs (map symbol->string chain)))
+    (if (null? chain-strs)
+        (mtype-sz base)
+        (mchain-size-of (make-mchain base chain-strs)))))
+
+;
+
+; tests
+
+(define u8
+  (basic 'u8 1))
+
+(define blah
+  (mem 'blah
+    (@ 0)
+    (var u8 'ok)
+    (var u8 'wow)))
+
+(define wa
+  (mem 'wa
+    (@ 0)
+    (var blah 'b1)
+    (var blah 'b2)))
+
