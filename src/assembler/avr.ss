@@ -89,38 +89,38 @@
 
 (defsimple "ldx"     "1001000ddddd1100" "d")
 (defsimple "ldx+"    "1001000ddddd1101" "d")
-(defsimple "ldx-"    "1001000ddddd1110" "d")
+(defsimple "ld-x"    "1001000ddddd1110" "d")
 (defsimple "ldyk"    "10k0kk0ddddd1kkk" "dk")
 (defsimple "ldy+"    "1001000ddddd1001" "d")
-(defsimple "ldy-"    "1001000ddddd1010" "d")
+(defsimple "ld-y"    "1001000ddddd1010" "d")
 (defsimple "ldzk"    "10k0kk0ddddd0kkk" "dk")
 (defsimple "ldz+"    "1001000ddddd0001" "d")
-(defsimple "ldz-"    "1001000ddddd0010" "d")
+(defsimple "ld-z"    "1001000ddddd0010" "d")
 (defmultiple "lds"
   ("1001000ddddd0000" "d")
   ("kkkkkkkkkkkkkkkk" "k"))
 
 (defsimple "stx"     "1001001ddddd1100" "d")
 (defsimple "stx+"    "1001001ddddd1101" "d")
-(defsimple "stx-"    "1001001ddddd1110" "d")
+(defsimple "st-x"    "1001001ddddd1110" "d")
 (defsimple "styk"    "10k0kk1ddddd1kkk" "dk")
 (defsimple "sty+"    "1001001ddddd1001" "d")
-(defsimple "sty-"    "1001001ddddd1010" "d")
+(defsimple "st-y"    "1001001ddddd1010" "d")
 (defsimple "stzk"    "10k0kk1ddddd0kkk" "dk")
 (defsimple "stz+"    "1001001ddddd0001" "d")
-(defsimple "stz-"    "1001001ddddd0010" "d")
+(defsimple "st-z"    "1001001ddddd0010" "d")
 (defmultiple "sts"
   ("1001001ddddd0000" "d")
   ("kkkkkkkkkkkkkkkk" "k"))
 
 (defsimple "lpm"     "1001010111001000" "")
-(defsimple "lpmr"    "1001000ddddd0100" "d")
-(defsimple "lpmr+"   "1001000ddddd0101" "d")
+(defsimple "lpmz"    "1001000ddddd0100" "d")
+(defsimple "lpmz+"   "1001000ddddd0101" "d")
 (defsimple "spm"     "1001010111101000" "")
 (defsimple "spmz+"   "1001010111111000" "")
 
 (defsimple "in"      "10110iidddddiiii" "di")
-(defsimple "out"     "10111iidddddiiii" "di")
+(defsimple "out"     "10111iidddddiiii" "id")
 
 (defsimple "pop"     "1001000ddddd1111" "d")
 (defsimple "push"    "1001001ddddd1111" "d")
@@ -141,52 +141,13 @@
 (define (clr. d) (eor. d d))
 (define (ser. d) (ldi. d #xFF))
 
-; TODO use &sreg for this and verify its right
-
-; sreg i t h s v n z c
-(define (breq. k) (brbs. 1 k))
-(define (brne. k) (brbc. 1 k))
-(define (brcs. k) (brbs. 0 k))
-(define (brcc. k) (brbc. 0 k))
-(define (brsh. k) (brbc. 0 k))
-(define (brlo. k) (brbs. 0 k))
-(define (brmi. k) (brbs. 2 k))
-(define (brpl. k) (brbc. 2 k))
-(define (brge. k) (brbc. 4 k))
-(define (brlt. k) (brbs. 4 k))
-(define (brhs. k) (brbs. 5 k))
-(define (brhc. k) (brbc. 5 k))
-(define (brts. k) (brbs. 6 k))
-(define (brtc. k) (brbc. 6 k))
-(define (brvs. k) (brbs. 3 k))
-(define (brvc. k) (brbc. 3 k))
-(define (brie. k) (brbs. 7 k))
-(define (brid. k) (brbc. 7 k))
-
 (define (lsl. d) (add. d d))
 (define (rol. d) (adc. d d))
 
-; sreg i t h s v n z c
-(define (sec.) (bset. 0))
-(define (clc.) (bclr. 0))
-(define (sen.) (bset. 2))
-(define (cln.) (bclr. 2))
-(define (sez.) (bset. 1))
-(define (clz.) (bclr. 1))
-(define (sei.) (bset. 7))
-(define (cli.) (bclr. 7))
-(define (ses.) (bset. 4))
-(define (cls.) (bclr. 4))
-(define (sev.) (bset. 3))
-(define (clv.) (bclr. 3))
-(define (set.) (bset. 6))
-(define (clt.) (bclr. 6))
-(define (seh.) (bset. 5))
-(define (clh.) (bclr. 5))
+(define (sty. d) (styk. d 0))
+(define (stz. d) (stzk. d 0))
 
-;
-
-; bit names is a list of strings
+; registers
 
 (define-type avr-register
   read-only:
@@ -432,6 +393,46 @@
 (define (^b reg name)
   (avr-register-bit-name->bit reg (symbol->string name)))
 
+; special breaks
+
+(define (breq. k) (brbs. (^b &sreg 'z) k))
+(define (brlo. k) (brbs. (^b &sreg 'c) k))
+(define (brmi. k) (brbs. (^b &sreg 'n) k))
+(define (brlt. k) (brbs. (^b &sreg 's) k))
+(define (brcs. k) (brbs. (^b &sreg 'c) k))
+(define (brhs. k) (brbs. (^b &sreg 'h) k))
+(define (brts. k) (brbs. (^b &sreg 't) k))
+(define (brvs. k) (brbs. (^b &sreg 'v) k))
+(define (brie. k) (brbs. (^b &sreg 'i) k))
+
+(define (brne. k) (brbc. (^b &sreg 'z) k))
+(define (brsh. k) (brbc. (^b &sreg 'c) k))
+(define (brpl. k) (brbc. (^b &sreg 'n) k))
+(define (brge. k) (brbc. (^b &sreg 's) k))
+(define (brcc. k) (brbc. (^b &sreg 'c) k))
+(define (brhc. k) (brbc. (^b &sreg 'h) k))
+(define (brtc. k) (brbc. (^b &sreg 't) k))
+(define (brvc. k) (brbc. (^b &sreg 'v) k))
+(define (brid. k) (brbc. (^b &sreg 'i) k))
+
+(define (sec.) (bset. (^b &sreg 'c)))
+(define (sen.) (bset. (^b &sreg 'n)))
+(define (sez.) (bset. (^b &sreg 'z)))
+(define (sei.) (bset. (^b &sreg 'i)))
+(define (ses.) (bset. (^b &sreg 's)))
+(define (sev.) (bset. (^b &sreg 'v)))
+(define (set.) (bset. (^b &sreg 't)))
+(define (seh.) (bset. (^b &sreg 'h)))
+
+(define (clc.) (bclr. (^b &sreg 'c)))
+(define (cln.) (bclr. (^b &sreg 'n)))
+(define (clz.) (bclr. (^b &sreg 'z)))
+(define (cli.) (bclr. (^b &sreg 'i)))
+(define (cls.) (bclr. (^b &sreg 's)))
+(define (clv.) (bclr. (^b &sreg 'v)))
+(define (clt.) (bclr. (^b &sreg 't)))
+(define (clh.) (bclr. (^b &sreg 'h)))
+
 ;
 
 ; todo error check -256 < relaccess < 255
@@ -473,7 +474,8 @@
            ; check idef
            ; check idef can take register as arg
            ; use correct io/gp addr
-           (error "using register as instruction arg not yet supported"))
+           ; for now just use sram addr (probably ok)
+           (resolve-register-access arg 'sram))
           ((label-access? arg)
            (resolve-label-access (label-access-name arg)
                                  (label-access-is-relative arg)
