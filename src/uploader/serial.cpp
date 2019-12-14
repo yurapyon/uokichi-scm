@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 #include <string.h>  // strlen
 
@@ -28,16 +29,14 @@ void ArduinoPort::open_serial(const string &filename, unsigned int baudrate) {
     int fd = open(filename.c_str(), O_RDWR | O_NONBLOCK);
 
     if (fd == -1) {
-        cerr << "couldn't open port: " << filename << endl;
-        return;
+        throw runtime_error("couldn't open port: " + filename);
     }
 
     struct termios tios;
 
     if (tcgetattr(fd, &tios)) {
-        cerr << "couldn't get terminfo: " << filename << endl;
         close(fd);
-        return;
+        throw runtime_error("couldn't get terminfo: " + filename);
     }
 
     speed_t spd = B9600;
@@ -87,9 +86,8 @@ void ArduinoPort::open_serial(const string &filename, unsigned int baudrate) {
     tios.c_cc[VTIME] = 0;
 
     if (tcsetattr(fd, TCSAFLUSH, &tios)) {
-        cerr << "couldn't set terminfo: " << filename << endl;
         close(fd);
-        return;
+        throw runtime_error("couldn't set terminfo: " + filename);
     }
 
     _fd = fd;
@@ -154,27 +152,20 @@ void ArduinoPort::transmit_string(const string &str) {
 bool ArduinoPort::wait_for_done() {
     while (true) {
         receive();
-        string responce((const char *)_buf.data());
-        if (!responce.compare(0, 5, "done:")) {
+        string response((const char *)_buf.data());
+        if (!response.compare(0, 5, "sync:")) {
+            bool is_ok = !response.compare(5, 4, "done");
+            return is_ok;
+        } else if (!response.compare(0, 4, "msg:")) {
             if (verbose) {
-                cout << "pDone: " << responce.substr(5) << endl;
+                cout << "pMsg: " << response.substr(4) << endl;
             }
-            return true;
-        } else if (!responce.compare(0, 5, "fail:")) {
+        } else if (!response.compare(0, 5, "warn:")) {
             if (verbose) {
-                cerr << "pFail: " << responce.substr(5) << endl;
-            }
-            return false;
-        } else if (!responce.compare(0, 4, "msg:")) {
-            if (verbose) {
-                cout << "pMsg: " << responce.substr(4) << endl;
-            }
-        } else if (!responce.compare(0, 5, "warn:")) {
-            if (verbose) {
-                cerr << "pWarning: " << responce.substr(5) << endl;
+                cerr << "pWarning: " << response.substr(5) << endl;
             }
         } else {
-            cerr << "strange message: " << responce << endl;
+            cerr << "strange message: " << response << endl;
             return false;
         }
     }
@@ -183,8 +174,6 @@ bool ArduinoPort::wait_for_done() {
 //
 
 Programmer::Programmer() {
-    // TODO handle errors if cant open device
-
     ArduinoPortSettings aps;
     _ap.init(aps);
     _ap.wait_for_done();
@@ -204,14 +193,16 @@ bool Programmer::set_chip(const string &str) {
     }
 }
 
-bool Programmer::send_hex_file(const string &hex_file) {
+bool Programmer::write_hex_file(const string &hex_file) {
     _ap.transmit_string("prog:begin");
     if(!_ap.wait_for_done()) {
+        cerr << "prog begin error" << endl;
         return false;
     }
 
-    _ap.transmit_string("prog:send_hex");
+    _ap.transmit_string("prog:write_hex");
     if(!_ap.wait_for_done()) {
+        cerr << "prog write hex error" << endl;
         return false;
     }
 
@@ -220,12 +211,14 @@ bool Programmer::send_hex_file(const string &hex_file) {
     while (getline(iss, line)) {
         _ap.transmit_string(line);
         if(!_ap.wait_for_done()) {
+            cerr << "prog hex line error" << endl;
             return false;
         }
     }
 
     _ap.transmit_string("prog:end");
     if(!_ap.wait_for_done()) {
+        cerr << "prog end error" << endl;
         return false;
     }
 
@@ -234,7 +227,6 @@ bool Programmer::send_hex_file(const string &hex_file) {
 
 //
 
-/*
 int main() {
     string hex_file =
         ":10000000940c00340000000000000000000000001c\n"
@@ -249,12 +241,10 @@ int main() {
     Programmer p;
 
     cout << "starting transmission" << endl;
-
     p.set_chip("atmega328p");
     cout << "set chip" << endl;
-    p.send_hex_file(hex_file);
+    p.write_hex_file(hex_file);
     cout << "sent hex" << endl;
 
     return 0;
 }
-*/

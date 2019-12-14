@@ -13,7 +13,7 @@ extern "C" {
     void uo_programmer_delete(Programmer *);
 
     bool uo_programmer_set_chip(Programmer *, const char *);
-    bool uo_programmer_send_hex_file(Programmer *, const char *);
+    bool uo_programmer_write_hex_file(Programmer *, const char *);
 
 #ifdef __cplusplus
 }

@@ -15,10 +15,10 @@
             bool
             "uo_programmer_set_chip"))
 
-(define _programmer-send-hex-file
+(define _programmer-write-hex-file
   (c-lambda ((pointer "Programmer") nonnull-char-string)
             bool
-            "uo_programmer_send_hex_file"))
+            "uo_programmer_write_hex_file"))
 
 (define-type programmer
   read-only:
@@ -28,10 +28,12 @@
 
 (define (make-programmer)
   (let ((p (_programmer-new)))
-    (_make-programmer p (make-will p _programmer-delete))))
+    (if (not p)
+        (error "couldnt init programmer")
+        (_make-programmer p (make-will p _programmer-delete)))))
 
 (define (programmer-set-chip p chip)
   (_programmer-set-chip (programmer-_ptr p) chip))
 
-(define (programmer-send-hex-file p file)
-  (_programmer-send-hex-file (programmer-_ptr p) file))
+(define (programmer-write-hex-file p file)
+  (_programmer-write-hex-file (programmer-_ptr p) file))

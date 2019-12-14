@@ -36,6 +36,7 @@
     (% 'loop)
     (sbi. (^sram &portc) 5)
     (rjmp. 0)
+    (rjmp. 0)
     (cbi. (^sram &portc) 5)
     (rjmp. 'loop)))
 

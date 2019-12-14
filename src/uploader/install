@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 
 cp libuo.so.0 /usr/local/lib/
+rm /usr/local/lib/libuo.so
 ln -s /usr/local/lib/libuo.so.0 /usr/local/lib/libuo.so
 
 rm -r /usr/local/include/uo

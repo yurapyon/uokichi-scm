@@ -509,6 +509,6 @@
 (define (avr16-compile-and-upload lst)
   (when (not (avr16-programmer))
     (avr16-init))
-  (programmer-send-hex-file
+  (programmer-write-hex-file
     (avr16-programmer)
     (avr16-compile lst)))

@@ -13,11 +13,6 @@ a:
 u+p:
   rename send_hex_file to write_hex_file
   communication
-    >
-      send_sync(bool failed)
-      send_msg(string msg)
-      send an error message before sending failed sync
-      sync is a marker for whenever a task is finished
     use bytes instead of strings?
       set_chip and stuff can use enums
       faster overall for sure and better memory usage

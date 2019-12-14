@@ -151,12 +151,8 @@ void PCPort::transmit_string(const String &str) {
     transmit((const uint8_t *)str.c_str(), str.length());
 }
 
-void PCPort::send_done(const String &str) {
-    _send_message("done:", str);
-}
-
-void PCPort::send_fail(const String &str) {
-    _send_message("fail:", str);
+void PCPort::send_sync(bool is_ok) {
+    _send_message("sync:", is_ok ? "done" : "fail");
 }
 
 void PCPort::send_msg(const String &str) {
@@ -169,12 +165,22 @@ void PCPort::send_warning(const String &str) {
 
 //
 
-// TODO bool for programming or not
+void Programmer::set_chip(const String &name) {
+    if (name == "atmega328p") {
+        _chip_type = CHIP_ATMEGA_328P;
+        _pcp.send_sync(true);
+    } else {
+        _chip_type = CHIP_NONE;
+        _pcp.send_warning("bad chip");
+        _pcp.send_sync(false);
+    }
+}
 
 void Programmer::begin() {
     switch(_chip_type) {
     case CHIP_NONE:
-        _pcp.send_fail("no chip set");
+        _pcp.send_warning("no chip set");
+        _pcp.send_sync(false);
         return;
     case CHIP_ATMEGA_328P:
         ATmega328P_begin();
@@ -185,7 +191,8 @@ void Programmer::begin() {
 void Programmer::end() {
     switch(_chip_type) {
     case CHIP_NONE:
-        _pcp.send_fail("no chip set");
+        _pcp.send_warning("no chip set");
+        _pcp.send_sync(false);
         return;
     case CHIP_ATMEGA_328P:
         ATmega328P_end();
@@ -193,13 +200,14 @@ void Programmer::end() {
     }
 }
 
-void Programmer::send_hex() {
+void Programmer::write_hex() {
     switch(_chip_type) {
     case CHIP_NONE:
-        _pcp.send_fail("no chip set");
+        _pcp.send_warning("no chip set");
+        _pcp.send_sync(false);
         return;
     case CHIP_ATMEGA_328P:
-        ATmega328P_send_hex();
+        ATmega328P_write_hex();
         break;
     }
 }
@@ -207,7 +215,8 @@ void Programmer::send_hex() {
 void Programmer::set_fuses(const String &str) {
     switch(_chip_type) {
     case CHIP_NONE:
-        _pcp.send_fail("no chip set");
+        _pcp.send_warning("no chip set");
+        _pcp.send_sync(false);
         return;
     case CHIP_ATMEGA_328P:
         ATmega328P_set_fuses(str);
@@ -238,7 +247,7 @@ void Programmer::ATmega328P_begin() {
     if (sync != 0x53) {
         _pcp.send_warning("bad sync byte, resetting chip");
         // TODO try reset again
-        _pcp.send_fail("unimplemented");
+        _pcp.send_sync(false);
         return;
     }
 
@@ -251,7 +260,9 @@ void Programmer::ATmega328P_begin() {
     if (!(sig_bytes[0] == 0x1e &&
           sig_bytes[1] == 0x95 &&
           sig_bytes[2] == 0x0F)) {
-        _pcp.send_fail("incorrect signature bytes");
+        _pcp.send_warning("incorrect signature bytes");
+        _pcp.send_sync(false);
+        return;
     }
 
     // chip erase
@@ -259,7 +270,7 @@ void Programmer::ATmega328P_begin() {
 
     delay(15);
 
-    _pcp.send_done("atmega328p begin");
+    _pcp.send_sync(true);
 }
 
 void Programmer::ATmega328P_end() {
@@ -271,11 +282,11 @@ void Programmer::ATmega328P_end() {
     digitalWrite(P_RESET, HIGH);
     pinMode(P_RESET, INPUT);
 
-    _pcp.send_done("atmega328p end");
+    _pcp.send_sync(true);
 }
 
-void Programmer::ATmega328P_send_hex() {
-    _pcp.send_done("ready for hex file");
+void Programmer::ATmega328P_write_hex() {
+    _pcp.send_sync(true);
 
     HexLineErrorCode res;
     String hex_line;
@@ -285,20 +296,21 @@ void Programmer::ATmega328P_send_hex() {
         res = ATmega328P_write_hex_line(hex_line);
         switch (res) {
         case HEX_LINE_ERR_ERROR:
-            _pcp.send_fail("failure");
+            _pcp.send_sync(false);
             return;
         case HEX_LINE_ERR_EOF:
-            _pcp.send_done("wrote hex_file");
+            _pcp.send_msg("done sending hex file");
+            _pcp.send_sync(true);
             return;
         case HEX_LINE_ERR_OK:
-            _pcp.send_done(hex_line);
+            _pcp.send_sync(true);
             continue;
         }
     }
 }
 
 void Programmer::ATmega328P_set_fuses(const String &str) {
-    _pcp.send_done("atmega328p fuses");
+    _pcp.send_sync(true);
 }
 
 
@@ -427,7 +439,8 @@ void setup() {
 
     PCPortSettings pcps;
     pcp.init(pcps);
-    pcp.send_done("hello");
+    pcp.send_msg("hello");
+    pcp.send_sync(true);
 }
 
 void loop() {
@@ -443,7 +456,7 @@ void loop() {
 
     } else if (str.startsWith("get:")) {
         str = str.substring(4);
-        pcp.send_done("get");
+        pcp.send_sync(true);
 
     } else if (str.startsWith("prog:")) {
         str = str.substring(5);
@@ -451,8 +464,8 @@ void loop() {
             prog.begin();
         } else if (str.startsWith("end")) {
             prog.end();
-        } else if (str.startsWith("send_hex")) {
-            prog.send_hex();
+        } else if (str.startsWith("write_hex")) {
+            prog.write_hex();
         }
     }
 }

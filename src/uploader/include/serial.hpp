@@ -45,7 +45,7 @@ public:
     ~Programmer();
 
     bool set_chip(const string &);
-    bool send_hex_file(const string &);
+    bool write_hex_file(const string &);
 
 private:
     ArduinoPort _ap;

@@ -19,8 +19,7 @@ public:
     String receive_string();
     void transmit_string(const String &);
 
-    void send_done(const String &);
-    void send_fail(const String &);
+    void send_sync(bool);
     void send_msg(const String &);
     void send_warning(const String &);
 
@@ -49,21 +48,13 @@ enum HexLineErrorCode {
     HEX_LINE_ERR_ERROR
 };
 
+// TODO bool for programming or not
+
 class Programmer {
 public:
     Programmer(PCPort &pcp)
     : _pcp(pcp) {
         _chip_type = CHIP_NONE;
-    }
-
-    void set_chip(const String &name) {
-        if (name == "atmega328p") {
-            _chip_type = CHIP_ATMEGA_328P;
-            _pcp.send_done("set chip");
-        } else {
-            _chip_type = CHIP_NONE;
-            _pcp.send_fail("bad chip");
-        }
     }
 
     ChipType chip_type() {
@@ -72,9 +63,10 @@ public:
 
     // TODO rename send hex
 
+    void set_chip(const String &name);
     void begin();
     void end();
-    void send_hex();
+    void write_hex();
     void set_fuses(const String &to);
 
 private:
@@ -83,7 +75,7 @@ private:
 
     void ATmega328P_begin();
     void ATmega328P_end();
-    void ATmega328P_send_hex();
+    void ATmega328P_write_hex();
     void ATmega328P_set_fuses(const String &to);
 
     uint16_t ATmega328P_flash_page_of(uint16_t addr);
