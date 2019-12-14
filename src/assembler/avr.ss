@@ -1,5 +1,12 @@
 (include "macros.ss")
 
+; todo
+; match up arg order with official docs
+; incl cycle count in documentation
+; auto register io/ arg types
+;   would have to change how idefs work
+;   would help with checking arg bit size
+
 (define-macro (defsimple . args)
   `(define-simple-instruction ,@args))
 
@@ -126,56 +133,56 @@
 
 (defsimple "direct"  "dddddddddddddddd" "d")
 
-(define (.sbr d k) (.ori d (.<< 1 k)))
-(define (.cbr d k) (.andi d (.~ (.<< 1 k))))
+(define (sbr. d k) (ori. d (.<< 1 k)))
+(define (cbr. d k) (andi. d (.~ (.<< 1 k))))
 
-(define (.tst d) (.and d d))
+(define (tst. d) (and. d d))
 
-(define (.clr d) (.eor d d))
-(define (.ser d) (.ldi d #xFF))
+(define (clr. d) (eor. d d))
+(define (ser. d) (ldi. d #xFF))
 
 ; TODO use &sreg for this and verify its right
 
 ; sreg i t h s v n z c
-(define (.breq k) (.brbs 1 k))
-(define (.brne k) (.brbc 1 k))
-(define (.brcs k) (.brbs 0 k))
-(define (.brcc k) (.brbc 0 k))
-(define (.brsh k) (.brbc 0 k))
-(define (.brlo k) (.brbs 0 k))
-(define (.brmi k) (.brbs 2 k))
-(define (.brpl k) (.brbc 2 k))
-(define (.brge k) (.brbc 4 k))
-(define (.brlt k) (.brbs 4 k))
-(define (.brhs k) (.brbs 5 k))
-(define (.brhc k) (.brbc 5 k))
-(define (.brts k) (.brbs 6 k))
-(define (.brtc k) (.brbc 6 k))
-(define (.brvs k) (.brbs 3 k))
-(define (.brvc k) (.brbc 3 k))
-(define (.brie k) (.brbs 7 k))
-(define (.brid k) (.brbc 7 k))
+(define (breq. k) (brbs. 1 k))
+(define (brne. k) (brbc. 1 k))
+(define (brcs. k) (brbs. 0 k))
+(define (brcc. k) (brbc. 0 k))
+(define (brsh. k) (brbc. 0 k))
+(define (brlo. k) (brbs. 0 k))
+(define (brmi. k) (brbs. 2 k))
+(define (brpl. k) (brbc. 2 k))
+(define (brge. k) (brbc. 4 k))
+(define (brlt. k) (brbs. 4 k))
+(define (brhs. k) (brbs. 5 k))
+(define (brhc. k) (brbc. 5 k))
+(define (brts. k) (brbs. 6 k))
+(define (brtc. k) (brbc. 6 k))
+(define (brvs. k) (brbs. 3 k))
+(define (brvc. k) (brbc. 3 k))
+(define (brie. k) (brbs. 7 k))
+(define (brid. k) (brbc. 7 k))
 
-(define (.lsl d) (.add d d))
-(define (.rol d) (.adc d d))
+(define (lsl. d) (add. d d))
+(define (rol. d) (adc. d d))
 
 ; sreg i t h s v n z c
-(define (.sec) (.bset 0))
-(define (.clc) (.bclr 0))
-(define (.sen) (.bset 2))
-(define (.cln) (.bclr 2))
-(define (.sez) (.bset 1))
-(define (.clz) (.bclr 1))
-(define (.sei) (.bset 7))
-(define (.cli) (.bclr 7))
-(define (.ses) (.bset 4))
-(define (.cls) (.bclr 4))
-(define (.sev) (.bset 3))
-(define (.clv) (.bclr 3))
-(define (.set) (.bset 6))
-(define (.clt) (.bclr 6))
-(define (.seh) (.bset 5))
-(define (.clh) (.bclr 5))
+(define (sec.) (bset. 0))
+(define (clc.) (bclr. 0))
+(define (sen.) (bset. 2))
+(define (cln.) (bclr. 2))
+(define (sez.) (bset. 1))
+(define (clz.) (bclr. 1))
+(define (sei.) (bset. 7))
+(define (cli.) (bclr. 7))
+(define (ses.) (bset. 4))
+(define (cls.) (bclr. 4))
+(define (sev.) (bset. 3))
+(define (clv.) (bclr. 3))
+(define (set.) (bset. 6))
+(define (clt.) (bclr. 6))
+(define (seh.) (bset. 5))
+(define (clh.) (bclr. 5))
 
 ;
 
@@ -205,40 +212,22 @@
   (or (_avr-register-io-addr reg)
       (error "register doesnt have io address:" (avr-register-name reg))))
 
-; register resolver expects a symbol
-; note: can use '_ in names as a way of saying bit is not named
+(define (avr-register-bit-name->bit reg name)
+  (let* ((bnames (avr-register-bit-names reg))
+         (names-rest (member name bnames)))
+   (if (not names-rest)
+       (error "register name not found" name)
+       (- (length names-rest) 1))))
 
-(define (make-avr-register-resolver reg)
-  (lambda lst
-    (if (null? lst)
-        (avr-register-sram-addr reg)
-        (let ((val (car lst)))
-          (when (not (symbol? (car lst)))
-            (error "must call resolver with symbol"))
-          (case val
-            ((_ _sram)
-             (avr-register-sram-addr reg))
-            ((_gp)
-             (avr-register-gp-addr reg))
-            ((_io)
-             (avr-register-io-addr reg))
-            (else
-             (let* ((name (symbol->string val))
-                    (name-ct (length (avr-register-bit-names reg)))
-                    (names-rest (member name (avr-register-bit-names reg))))
-              (if (not names-rest)
-                  (error "register name not found")
-                  (- (length names-rest) 1)))))))))
-
-"avr register: _name_ sram-addr: _a_ _[gp io]_ _bit-names: _"
+; "REG: _name_ | ADDR: _a_ _[gp io]_ _| bit-names... _"
 (define (avr-register-make-documentation reg)
-  (let* ((p (open-output-string))
-         (name (avr-register-name reg))
+  (let* ((name (avr-register-name reg))
          (sram-addr (avr-register-sram-addr reg))
          (bit-names (avr-register-bit-names reg))
          (has-gp (and (_avr-register-gp-addr reg) #t))
          (has-io (and (_avr-register-io-addr reg) #t))
-         (has-bit-names (not (null? bit-names))))
+         (has-bit-names (not (null? bit-names)))
+         (p (open-output-string)))
     (display "REG: " p)
     (display name p)
     (display " | ADDR: #x" p)
@@ -266,14 +255,13 @@
 
 (define-macro (defregister name sram-addr . names)
   (include "macros.incl.ss")
-  (let ((resolver-name (build-symbol "&" name))
-        (reg-name (build-symbol "&" name ".reg")))
+  (let ((reg-name (build-symbol "&" name)))
     `(begin
-       (define ,reg-name (make-avr-register ,(symbol->string name) ,sram-addr (list ,@(map symbol->string names))))
-       (define ,resolver-name (make-avr-register-resolver ,reg-name))
+       (define ,reg-name (make-avr-register ,(symbol->string name)
+                                            ,sram-addr
+                                            (list ,@(map symbol->string names))))
        (let ((doc-str (avr-register-make-documentation ,reg-name)))
-         (document! ,reg-name doc-str)
-         (document! ,resolver-name doc-str)))))
+         (document! ,reg-name doc-str)))))
 
 (defregister  r0 #x00)
 (defregister  r1 #x01)
@@ -424,6 +412,80 @@
 (defregister ubrr0l #xc4)
 (defregister ubrr0h #xc5)
 (defregister udr0   #xc6)
+
+;
+
+(define-type avr-register-access
+  read-only:
+  reg
+  type)
+
+(define (^io reg)
+  (make-avr-register-access reg 'io))
+
+(define (^gp reg)
+  (make-avr-register-access reg 'gp))
+
+(define (^sram reg)
+  (make-avr-register-access reg 'sram))
+
+(define (^b reg name)
+  (avr-register-bit-name->bit reg (symbol->string name)))
+
+;
+
+; todo error check -256 < relaccess < 255
+(define (avr16-fix inst code curr-addr)
+  (let* ((label-table (code-label-table code))
+         (idef (instruction-idef inst))
+         (resolve-label-access
+           (lambda (name is-relative offset)
+             (let ((label (table-ref label-table name #f)))
+               (if (not label)
+                   (error "label not found:" name curr-addr)
+                   (let ((addr (+ offset (label-addr label))))
+                     (if is-relative
+                         (- addr curr-addr 1)
+                         addr))))))
+         (resolve-register-access
+           (lambda (reg type)
+             (case type
+               ((io)
+                (avr-register-io-addr reg))
+               ((gp)
+                (avr-register-gp-addr reg))
+               ((sram)
+                (avr-register-sram-addr reg))
+               (else
+                (error "invalid register type in register access:" type))))))
+    (map
+      (lambda (arg)
+        (cond
+          ((number? arg)
+           arg)
+          ((symbol? arg)
+           (resolve-label-access arg
+                                 (or (eq? idef rjmp.idef)
+                                     (eq? idef rcall.idef))
+                                 0))
+          ((avr-register? arg)
+           ; todo
+           ; check idef
+           ; check idef can take register as arg
+           ; use correct io/gp addr
+           (error "using register as instruction arg not yet supported"))
+          ((label-access? arg)
+           (resolve-label-access (label-access-name arg)
+                                 (label-access-is-relative arg)
+                                 (label-access-offset arg)))
+          ((avr-register-access? arg)
+           (resolve-register-access (avr-register-access-reg arg)
+                                    (avr-register-access-type arg)))
+          (else
+           (error "invalid instruction argument:" arg))))
+      (instruction-args inst))))
+
+(instruction-fixer avr16-fix)
 
 ;
 

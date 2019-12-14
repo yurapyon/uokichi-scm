@@ -7,19 +7,8 @@
   look into if x86 stuff can work
 
 a:
-  memory
   documentation facilities
     instructions / opdefs
-      for idef types, just build documentation out of opdef spec-str
-        just make a string and keep it in idef struct
-
-        maybe keep everything else unprintable so instruction documentation
-        is as easy as
-          '> .add.idef'
-          in repl
-
-          (doc .add) where doc is some 'method' inst bad either
-    registers
 
 u+p:
   rename send_hex_file to write_hex_file

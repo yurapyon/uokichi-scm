@@ -1,7 +1,15 @@
 uokichi
 
-assembler for AVR and PIC chips
+scheme based assembler for ATmega328P
+c++ uploader library with C bindings
+c++ programmer that runs on Arduino Uno
 
 requires Gambit Scheme
+         Arduino Uno
+         Linux
+
+todo:
+  support more AVR chips
+  support PIC chips
 
 MIT

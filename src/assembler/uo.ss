@@ -1,8 +1,4 @@
 ; todo
-; label-access 'resolver'
-;   so you can do (- (%r 'label) 1)
-;   or just (%r 'label -1) will add -1 to it
-;   label-access offset
 ; check opdef arg bitcount
 ;   dont let supplied args be truncated? or at least warn
 ; when checking for addr tag as first obj in list
@@ -11,6 +7,8 @@
 ; shifted-idef can use size of opcode to determine shift-sz
 ; personal foldl and foldr
 ;   take one lst
+; labels use symbols or strings?
+; what is (flatten '(()))
 
 (define (flatten lst)
   (let rec ((lst lst)
@@ -293,7 +291,8 @@
 (define-type label-access
   read-only:
   name
-  is-relative)
+  is-relative
+  offset)
 
 ;
 
@@ -396,46 +395,29 @@
 
 ;
 
-; note: assumes math for reljumps based on atmega328p hardware
-(define (fix-instruction-args args label-table curr-addr)
-  (map
-    (lambda (arg)
-      (cond
-        ((number? arg)
-         arg)
-        ((label-access? arg)
-         (let* ((name (label-access-name arg))
-                (label (table-ref label-table name #f)))
-            (if (not label)
-                (error "label not found:" name)
-                (let ((addr (label-addr label)))
-                  (if (label-access-is-relative arg)
-                      (- addr curr-addr 1)
-                      addr)))))
-        (else
-         (error "instruction argument must be number or label-access:" arg))))
-    args))
+(define instruction-fixer (make-parameter #f))
 
+; note: assumes math for reljumps based on atmega328p hardware
 ; returns a flat list of address-tags and words
 (define (code->words code _settings)
-  (collect
-    (lambda (pair)
-      (let ((obj (car pair))
-            (addr (cdr pair)))
-        (cond
-          ((instruction? obj)
-           (let* ((apply-fn (idef-apply-fn (instruction-idef obj)))
-                  (fixed-args (fix-instruction-args (instruction-args obj)
-                                                    (code-label-table code)
-                                                    addr))
-                  (words (apply-fn fixed-args)))
-             words))
-          ((address-tag? obj)
-           (list obj))
-          (else
-           '()))))
-    (zip (code-code code)
-         (code-addr-image code))))
+  (let ((fixer (instruction-fixer)))
+    (when (not fixer)
+      (error "instruction-fixer not defined"))
+    (collect
+      (lambda (pair)
+        (let ((obj (car pair))
+              (addr (cdr pair)))
+          (cond
+            ((instruction? obj)
+             (let ((fixed-args (fixer obj code addr))
+                   (apply-fn (idef-apply-fn (instruction-idef obj))))
+               (apply-fn fixed-args)))
+            ((address-tag? obj)
+             (list obj))
+            (else
+             '()))))
+      (zip (code-code code)
+           (code-addr-image code)))))
 
 (define (gen-hex-records words settings)
   (let ((words-per-record (compile-settings-words-per-record settings))
@@ -472,6 +454,8 @@
     (get-output-string p)))
 
 ; memory
+
+; todo use mfield-tag in declarations
 
 (define-type mfield
   read-only:
@@ -583,11 +567,11 @@
 (define (% name)
   (make-label-tag name))
 
-(define (%r name)
-  (make-label-access name #t))
+(define (%r name #!optional (offset 0))
+  (make-label-access name #t offset))
 
-(define (%a name)
-  (make-label-access name #f))
+(define (%a name #!optional (offset 0))
+  (make-label-access name #f offset))
 
 ;
 
@@ -632,4 +616,3 @@
     (@ 0)
     (var blah 'b1)
     (var blah 'b2)))
-

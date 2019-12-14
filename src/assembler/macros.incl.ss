@@ -15,8 +15,8 @@
   (string->symbol (apply string-append (map ->string lst))))
 
 (define (_make-instruction-definer name arg-ct idef)
-  (let* ((iname (build-symbol "." name))
-         (idef-name (build-symbol iname ".idef"))
+  (let* ((iname (build-symbol name "."))
+         (idef-name (build-symbol iname "idef"))
          (arg-lst
            (map
              (lambda (i)
