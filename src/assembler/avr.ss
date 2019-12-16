@@ -144,6 +144,9 @@
 (define (lsl. d) (add. d d))
 (define (rol. d) (adc. d d))
 
+(define (ldy. d) (ldyk. d 0))
+(define (ldz. d) (ldzk. d 0))
+
 (define (sty. d) (styk. d 0))
 (define (stz. d) (stzk. d 0))
 
