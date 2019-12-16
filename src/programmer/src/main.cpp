@@ -3,9 +3,6 @@
 
 #include "main.hpp"
 
-// TODO use smaller protocol for sending "done"
-//        after exer hex line for syncs
-
 uint8_t hr_nibble_to_byte(char nibble) {
     if (nibble >= '0' && nibble <= '9') {
         return nibble - 0x30;
